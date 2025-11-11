@@ -2,18 +2,57 @@
 __pycache__/
 *.py[cod]
 *$py.class
+# .gitignore for TimeTracking
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
 *.so
-.Python
+
+# Virtual environments
 .venv/
 venv/
 ENV/
 
-# IDE
+# Editor / IDE
 .vscode/
 .idea/
-*.swp
 *.swo
+*.swp
 
-# Application specific
-*.json
-!default_settings.json
+# macOS
+.DS_Store
+
+# Python packaging
+build/
+dist/
+*.egg-info/
+*.egg
+
+# Logs, coverage, testing
+.pytest_cache/
+.tox/
+.coverage
+coverage.xml
+htmlcov/
+
+# Databases and instance-specific files
+web_data.db
+timedata.json
+instance/
+
+# Flask / webassets
+.webassets-cache
+
+# Node / Playwright
+node_modules/
+.playwright/
+
+# Misc
+.env
+/site
+
+# End of https://www.gitignore.io/api/macos,linux,django,python,pycharm
