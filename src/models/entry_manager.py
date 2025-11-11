@@ -65,11 +65,37 @@ class TimeEntryManager:
     
     def get_total_time_for_date(self, date_: date) -> timedelta:
         """Calculate total time worked for a date (excluding absences)."""
+        entries = self.get_entries_for_date(date_)
+        
+        # Separate work entries and absences
+        work_entries = [e for e in entries if not e.is_absence]
+        absence_entries = [e for e in entries if e.is_absence]
+        
+        # Calculate total work time
         total = timedelta()
-        for entry in self.get_entries_for_date(date_):
-            if not entry.is_absence:
-                total += entry.duration
+        for work_entry in work_entries:
+            work_duration = work_entry.duration
+            
+            # Subtract any overlapping absence time
+            for absence in absence_entries:
+                overlap = self._calculate_overlap(work_entry, absence)
+                work_duration -= overlap
+            
+            total += work_duration
+        
         return total
+    
+    def _calculate_overlap(self, entry1: TimeEntry, entry2: TimeEntry) -> timedelta:
+        """Calculate the time overlap between two entries."""
+        # Find the overlap period
+        overlap_start = max(entry1.start_time, entry2.start_time)
+        overlap_end = min(entry1.end_time, entry2.end_time)
+        
+        # If there's an overlap, return the duration
+        if overlap_start < overlap_end:
+            return overlap_end - overlap_start
+        
+        return timedelta()
     
     def update_entry(self, old_entry: TimeEntry, new_entry: TimeEntry) -> None:
         """Update an existing entry with new data."""
@@ -126,8 +152,9 @@ class TimeEntryManager:
 
         Returns a tuple (dates, descriptions, matrix) where:
           - dates is a list of date objects from start_date to end_date (inclusive)
-          - descriptions is a list of distinct descriptions
+          - descriptions is a list of distinct descriptions (work entries + absences)
           - matrix is a dict mapping description -> list of floats (hours per day)
+            Absences are shown as negative values
         """
         # Normalize dates
         if end_date < start_date:
@@ -137,31 +164,40 @@ class TimeEntryManager:
         dates = [start_date + timedelta(days=i) for i in range(num_days)]
 
         # Collect entries in range
-        # Map (date, description) -> seconds
+        # Map (date, description, is_absence) -> seconds
         buckets = {}
         for d in dates:
             for e in self.get_entries_for_date(d):
-                # use description or empty string as key
-                desc = e.description.strip() if e.description else "(no description)"
-                # only count non-absence entries in hours
+                # use description or label based on entry type
+                if e.is_absence:
+                    desc = f"🏖 Absence: {e.description.strip() if e.description else '(no description)'}"
+                else:
+                    desc = e.description.strip() if e.description else "(no description)"
+                
                 seconds = 0
                 try:
                     seconds = int(e.duration.total_seconds())
                 except Exception:
                     seconds = 0
-                key = (d, desc)
+                
+                key = (d, desc, e.is_absence)
                 buckets[key] = buckets.get(key, 0) + seconds
 
-        # Gather unique descriptions
-        descriptions = sorted({desc for (_, desc) in buckets.keys()})
+        # Gather unique descriptions (preserving absence flag)
+        desc_keys = sorted({(desc, is_abs) for (_, desc, is_abs) in buckets.keys()})
+        descriptions = [desc for desc, _ in desc_keys]
 
         # Build matrix mapping description -> list of hours per day
+        # Absences shown as negative values
         matrix = {}
-        for desc in descriptions:
+        for desc, is_absence in desc_keys:
             row = []
             for d in dates:
-                secs = buckets.get((d, desc), 0)
+                secs = buckets.get((d, desc, is_absence), 0)
                 hrs = round(secs / 3600.0, 2)
+                # Show absences as negative values
+                if is_absence:
+                    hrs = -hrs
                 row.append(hrs)
             matrix[desc] = row
 
