@@ -4,14 +4,14 @@ Application settings model.
 
 import json
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 
 class Settings:
     """Manages application settings."""
     
-    def __init__(self, config_file: Path = None):
-        self.config_file = config_file or Path.home() / '.timetracking' / 'config.json'
+    def __init__(self, config_file: Optional[Path] = None):
+        self.config_file = config_file or Path.home() / '.timetracker' / 'config.json'
         self.config: Dict[str, Any] = {}
         self.load()
     
@@ -39,7 +39,7 @@ class Settings:
                 'end': '17:00'
             },
             'break_duration': 60,  # minutes
-            'data_directory': str(Path.home() / '.timetracking' / 'data'),
+            'data_directory': str(Path.home() / '.timetracker' / 'data'),
         }
     
     def get(self, key: str, default: Any = None) -> Any:

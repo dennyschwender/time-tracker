@@ -161,7 +161,7 @@ class TimeEntryManager:
             row = []
             for d in dates:
                 secs = buckets.get((d, desc), 0)
-                hrs = round(secs / 3600.0, 3)
+                hrs = round(secs / 3600.0, 2)
                 row.append(hrs)
             matrix[desc] = row
 

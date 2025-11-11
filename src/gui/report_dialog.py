@@ -72,17 +72,42 @@ class ReportDialog(QDialog):
             ws: Worksheet = wb.active  # type: ignore
             ws.title = "Time Report"
 
-            # Header: first cell empty then dates
+            # Header: first cell empty, then dates, then "Total"
             ws.cell(row=1, column=1, value="Description")
             for c, d in enumerate(dates, start=2):
                 ws.cell(row=1, column=c, value=d.isoformat())
+            # Add "Total" column header
+            total_col = len(dates) + 2
+            ws.cell(row=1, column=total_col, value="Total")
 
-            # Fill rows
+            # Fill rows with data and calculate row totals
             for r, desc in enumerate(descriptions, start=2):
                 ws.cell(row=r, column=1, value=desc)
                 row_vals = matrix.get(desc, [])
+                row_total = 0.0
                 for c, val in enumerate(row_vals, start=2):
                     ws.cell(row=r, column=c, value=val)
+                    row_total += val
+                # Write row total
+                ws.cell(row=r, column=total_col, value=round(row_total, 2))
+
+            # Add a row for column totals
+            total_row = len(descriptions) + 2
+            ws.cell(row=total_row, column=1, value="Total")
+            
+            # Calculate column totals (sum for each date)
+            grand_total = 0.0
+            for c, _ in enumerate(dates, start=2):
+                col_total = 0.0
+                for desc in descriptions:
+                    row_vals = matrix.get(desc, [])
+                    if c - 2 < len(row_vals):
+                        col_total += row_vals[c - 2]
+                ws.cell(row=total_row, column=c, value=round(col_total, 2))
+                grand_total += col_total
+            
+            # Write grand total (bottom-right cell)
+            ws.cell(row=total_row, column=total_col, value=round(grand_total, 2))
 
             # Auto-width for columns
             for idx, col in enumerate(ws.columns, start=1):

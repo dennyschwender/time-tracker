@@ -6,7 +6,9 @@ Main entry point for the Time Tracking application.
 import os
 import sys
 from PyQt5.QtWidgets import QApplication
+from models.settings import Settings
 from gui.main_window import MainWindow
+from gui.theme import apply_theme
 
 
 def debug_print(msg: str) -> None:
@@ -19,8 +21,13 @@ def main():
     try:
         debug_print("Starting application...")
         app = QApplication(sys.argv)
+        # Load settings and apply theme early so widgets pick up stylesheet
+        settings = Settings()
+        theme_name = settings.get('theme', 'dark')
+        apply_theme(app, theme_name)
+
         debug_print("Creating main window...")
-        window = MainWindow()
+        window = MainWindow(settings)
         debug_print("Showing window...")
         window.show()
         debug_print("Entering main loop...")

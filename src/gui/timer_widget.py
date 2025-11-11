@@ -29,16 +29,16 @@ class TimerWidget(QWidget):
         """Set up the user interface."""
         layout = QVBoxLayout(self)
         
-        # Description input
-        self.description = QLineEdit()
-        self.description.setPlaceholderText("Work description...")
-        layout.addWidget(self.description)
-        
         # Time display
         self.time_label = QLabel("00:00:00")
         self.time_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.time_label.setStyleSheet("font-size: 48px;")
         layout.addWidget(self.time_label)
+        
+        # Description input (below clock)
+        self.description = QLineEdit()
+        self.description.setPlaceholderText("Work description...")
+        layout.addWidget(self.description)
         
         # Buttons
         button_layout = QHBoxLayout()

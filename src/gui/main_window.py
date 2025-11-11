@@ -18,7 +18,11 @@ from PyQt5.QtWidgets import (
     QListWidgetItem,
 )
 from PyQt5.QtCore import Qt, QDate
+from PyQt5.QtGui import QColor
+from PyQt5.QtWidgets import QApplication
+from gui.theme import apply_theme, ThemeName
 from models.entry_manager import TimeEntryManager
+from models.settings import Settings
 from .timer_widget import TimerWidget
 from .manual_entry_dialog import ManualEntryDialog
 from .edit_entry_dialog import EditEntryDialog
@@ -26,17 +30,40 @@ from .report_dialog import ReportDialog
 
 
 class MainWindow(QMainWindow):
-    def __init__(self):
+    def __init__(self, settings: Settings):
         super().__init__()
         self.setWindowTitle("Time Tracking")
         self.resize(800, 600)
+        self.settings = settings
         
-        # Initialize entry manager using platform-standard user data dir
+    # Initialize entry manager. Prefer an existing ~/.timetracker file if present
+        # (for backward compatibility), otherwise use the platform-standard user data dir.
         appname = "TimeTracker"
         appauthor = "dennyschwender"
-        data_dir = Path(user_data_dir(appname, appauthor))
-        data_dir.mkdir(parents=True, exist_ok=True)
-        self.entry_manager = TimeEntryManager(data_dir / "timedata.json")
+        default_data_dir = Path(user_data_dir(appname, appauthor))
+
+        # Candidate storage file locations (in preference order)
+        candidates = [
+            default_data_dir / "timedata.json",
+            Path.home() / ".timetracker" / "timedata.json",
+            Path.home() / ".timetracker" / "data" / "timedata.json",
+        ]
+
+        storage_path = None
+        for p in candidates:
+            if p.exists():
+                storage_path = p
+                break
+
+        if storage_path is None:
+            # No existing file found — use the platform default and ensure dir exists
+            default_data_dir.mkdir(parents=True, exist_ok=True)
+            storage_path = default_data_dir / "timedata.json"
+        else:
+            # ensure parent directory exists (in case we picked the ~/.timetracker path)
+            storage_path.parent.mkdir(parents=True, exist_ok=True)
+
+        self.entry_manager = TimeEntryManager(storage_path)
 
         # Set up the main widget and layout
         self.central_widget = QWidget()
@@ -67,6 +94,64 @@ class MainWindow(QMainWindow):
         
         # Set up menus
         self._create_menus()
+
+        # Apply UI-level theme colors (text/entry colors) based on settings
+        self._apply_theme_colors()
+
+    def _get_theme(self) -> str:
+        return getattr(self, 'settings', None) and self.settings.get('theme', 'dark') or 'dark'
+
+    def _get_colors(self):
+        """Return a small palette of colors depending on theme name."""
+        theme = self._get_theme()
+        if theme == 'light':
+            return {
+                'text': '#111217',
+                'bg': '#ffffff',
+                'selection_bg': '#cfe3ff',
+                'selection_text': '#0b1220',
+                'header': '#2f3b45',
+                'header_bg': '#f2f6fb',
+                'absence': '#c23b3b',
+                'entry': '#0b4a7a'
+            }
+        # dark
+        return {
+            'text': '#ffffff',
+            'bg': '#151515',
+            'selection_bg': '#2b6ef0',
+            'selection_text': '#ffffff',
+            'header': '#e0e6ea',
+            'header_bg': '#2a2a2a',
+            'absence': '#ff8a7a',
+            'entry': '#ffffff'
+        }
+
+    def _apply_theme_colors(self):
+        colors = self._get_colors()
+        # Update any widget-level styles if needed (we prefer global stylesheet, but
+        # update header/entry colors which are set programmatically).
+        # Refresh current view so items pick up new colors.
+        self._on_date_selected(self.calendar.selectedDate().toPyDate())
+
+    def _set_theme(self, theme_name: ThemeName):
+        """Switch application theme at runtime and persist choice to settings."""
+        app = QApplication.instance()
+        if app is None:
+            return
+
+        apply_theme(app, theme_name)
+        # Persist setting
+        try:
+            if getattr(self, 'settings', None):
+                self.settings.set('theme', theme_name)
+                self.settings.save()
+        except Exception:
+            # don't crash the UI if saving fails
+            pass
+
+        # Re-apply any widget-specific color adjustments and refresh view
+        self._apply_theme_colors()
     
     def _create_menus(self):
         """Create the application menus."""
@@ -97,13 +182,33 @@ class MainWindow(QMainWindow):
         manual_entry.triggered.connect(self._show_manual_entry)
         tools_menu.addAction(manual_entry)
 
+        # View menu with Theme selection
+        view_menu = QMenu("&View", self)
+        menubar.addMenu(view_menu)
+
+        theme_menu = QMenu("Theme", self)
+        view_menu.addMenu(theme_menu)
+
+        dark_action = QAction("Dark", self)
+        dark_action.setStatusTip("Use dark theme")
+        dark_action.triggered.connect(lambda: self._set_theme('dark'))
+        theme_menu.addAction(dark_action)
+
+        light_action = QAction("Light", self)
+        light_action.setStatusTip("Use light theme")
+        light_action.triggered.connect(lambda: self._set_theme('light'))
+        theme_menu.addAction(light_action)
+
     
     
     def _on_date_selected(self, selected_date):
         """Update summary when a date is selected."""
         if isinstance(selected_date, QDate):
             selected_date = selected_date.toPyDate()
-            
+        
+        # pick colors from current theme
+        colors = self._get_colors()
+
         entries = self.entry_manager.get_entries_for_date(selected_date)
         total_time = self.entry_manager.get_total_time_for_date(selected_date)
         
@@ -122,7 +227,9 @@ class MainWindow(QMainWindow):
             f"Absences: {absences}"
         )
         header.setFlags(Qt.ItemFlag(header.flags() & ~Qt.ItemFlag.ItemIsEnabled))
-        header.setBackground(self.entries_list.palette().alternateBase())
+        # give header a subtle background so it stands out in light theme
+        header.setBackground(QColor(colors.get('header_bg', '#f2f6fb')))
+        header.setForeground(QColor(colors.get('header', '#2f3b45')))
         font = header.font()
         font.setBold(True)
         header.setFont(font)
@@ -139,7 +246,8 @@ class MainWindow(QMainWindow):
             if entry.is_absence:
                 text = f"🏖  Absence - {entry.description}"
                 item = QListWidgetItem(text)
-                item.setForeground(Qt.GlobalColor.darkRed)
+                # use theme absence color
+                item.setForeground(QColor(colors.get('absence')))
             else:
                 start = entry.start_time.strftime("%H:%M")
                 end = entry.end_time.strftime("%H:%M")
@@ -148,7 +256,8 @@ class MainWindow(QMainWindow):
                 if entry.description:
                     text += f"\n   📝 {entry.description}"
                 item = QListWidgetItem(text)
-                item.setForeground(Qt.GlobalColor.darkBlue)
+                # use theme entry color (for dark theme this will be white)
+                item.setForeground(QColor(colors.get('entry')))
             
             item.setData(Qt.ItemDataRole.UserRole, entry)
             self.entries_list.addItem(item)
