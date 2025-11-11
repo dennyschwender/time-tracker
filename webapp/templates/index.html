@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>TimeTracker (Web)</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+
+<body>
+    <header class="site-header">
+        <h1>TimeTracker</h1>
+        <p class="muted">Stores data in browser localStorage by default. Server sync available when enabled.</p>
+    </header>
+
+    <main class="layout">
+        <aside class="panel">
+            <section class="card timer-card">
+                <h2>Timer</h2>
+                <div class="timer-display">
+                    <div id="timer_time">00:00:00</div>
+                    <div id="timer_status" class="muted">Stopped</div>
+                </div>
+                <input type="text" id="timer_description" placeholder="What are you working on?">
+                <div class="timer-controls">
+                    <button id="timer_start" class="primary">Start</button>
+                    <button id="timer_stop" class="danger" disabled>Stop</button>
+                </div>
+            </section>
+
+            <section class="card entry-form">
+                <h2>Manual Entry</h2>
+                <label>Date: <input type="date" id="date"></label>
+                <label>Start: <input type="time" id="start"></label>
+                <label>End: <input type="time" id="end"></label>
+                <input type="text" id="description" placeholder="Description">
+                <label class="checkbox-inline"><input type="checkbox" id="is_absence"> Absence</label>
+                <div class="form-actions"><button id="add" class="primary">Add Entry</button></div>
+            </section>
+
+            <section class="card sync-card">
+                <h2>Sync</h2>
+                <div class="form-actions">
+                    <button id="save_server">Sync to Server</button>
+                    <button id="load_server">Load from Server</button>
+                </div>
+                <div id="status" class="muted"></div>
+            </section>
+        </aside>
+
+        <section class="panel main-panel">
+            <h2>Entries</h2>
+            <div id="entries" class="entries-list"></div>
+        </section>
+    </main>
+
+    <!-- Edit modal -->
+    <div id="edit_modal" class="modal" aria-hidden="true">
+        <div class="modal-content">
+            <h3>Edit Entry</h3>
+            <label>Date: <input type="date" id="edit_date"></label>
+            <label>Start: <input type="time" id="edit_start"></label>
+            <label>End: <input type="time" id="edit_end"></label>
+            <input type="text" id="edit_description" placeholder="Description">
+            <div class="form-actions">
+                <button id="edit_save" class="primary">Save</button>
+                <button id="edit_cancel">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+
+</html>
