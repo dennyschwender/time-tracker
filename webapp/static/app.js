@@ -22,6 +22,12 @@
     const statusEl = document.getElementById('status');
     const exportCsvBtn = document.getElementById('export_csv');
 
+    // Calendar elements
+    const calendarGrid = document.getElementById('calendar_grid');
+    const calendarTitle = document.getElementById('calendar_title');
+    const calendarPrev = document.getElementById('calendar_prev');
+    const calendarNext = document.getElementById('calendar_next');
+
     // Timer elements
     const timerTimeEl = document.getElementById('timer_time');
     const timerStatusEl = document.getElementById('timer_status');
@@ -44,6 +50,9 @@
     let currentUsername = null;
     let serverDbEnabled = false;
     let autoSyncInterval = null;
+
+    // Calendar state
+    let currentCalendarDate = new Date();
 
     // Check authentication status
     async function checkAuth() {
@@ -563,8 +572,190 @@
         }
     }
 
+    function renderCalendar() {
+        const year = currentCalendarDate.getFullYear();
+        const month = currentCalendarDate.getMonth();
+        
+        // Update title
+        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                           'July', 'August', 'September', 'October', 'November', 'December'];
+        calendarTitle.textContent = `${monthNames[month]} ${year}`;
+        
+        // Clear grid
+        calendarGrid.innerHTML = '';
+        
+        // Add weekday headers
+        const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Week'];
+        weekdays.forEach(day => {
+            const header = document.createElement('div');
+            header.className = 'calendar-weekday';
+            header.textContent = day;
+            calendarGrid.appendChild(header);
+        });
+        
+        // Calculate hours per day
+        const list = loadLocal();
+        const hoursPerDay = {};
+        
+        // Group entries by date
+        const entriesByDate = {};
+        list.forEach(entry => {
+            if (!entry.date) return;
+            if (!entriesByDate[entry.date]) {
+                entriesByDate[entry.date] = [];
+            }
+            entriesByDate[entry.date].push(entry);
+        });
+        
+        // Calculate total for each day (work time minus overlapping absences)
+        Object.keys(entriesByDate).forEach(date => {
+            const entries = entriesByDate[date];
+            const workEntries = entries.filter(e => !e.is_absence);
+            const absenceEntries = entries.filter(e => e.is_absence);
+            
+            let totalHours = 0;
+            
+            // For each work entry, calculate its duration minus overlapping absences
+            workEntries.forEach(workEntry => {
+                let workStart, workEnd;
+                
+                if (workEntry.start_iso && workEntry.end_iso) {
+                    workStart = new Date(workEntry.start_iso);
+                    workEnd = new Date(workEntry.end_iso);
+                } else if (workEntry.date && workEntry.start && workEntry.end) {
+                    workStart = new Date(`${workEntry.date}T${workEntry.start}`);
+                    workEnd = new Date(`${workEntry.date}T${workEntry.end}`);
+                } else {
+                    return;
+                }
+                
+                let workDuration = (workEnd - workStart) / (1000 * 60 * 60);
+                
+                // Subtract overlapping absence time
+                absenceEntries.forEach(absence => {
+                    let absStart, absEnd;
+                    
+                    if (absence.start_iso && absence.end_iso) {
+                        absStart = new Date(absence.start_iso);
+                        absEnd = new Date(absence.end_iso);
+                    } else if (absence.date && absence.start && absence.end) {
+                        absStart = new Date(`${absence.date}T${absence.start}`);
+                        absEnd = new Date(`${absence.date}T${absence.end}`);
+                    } else {
+                        return;
+                    }
+                    
+                    // Calculate overlap
+                    const overlapStart = new Date(Math.max(workStart, absStart));
+                    const overlapEnd = new Date(Math.min(workEnd, absEnd));
+                    
+                    if (overlapStart < overlapEnd) {
+                        const overlapHours = (overlapEnd - overlapStart) / (1000 * 60 * 60);
+                        workDuration -= overlapHours;
+                    }
+                });
+                
+                totalHours += workDuration;
+            });
+            
+            hoursPerDay[date] = totalHours;
+        });
+        
+        // Get first day of month (0 = Sunday, 1 = Monday, etc.)
+        const firstDay = new Date(year, month, 1);
+        let dayOfWeek = firstDay.getDay();
+        // Adjust: Monday = 0, Sunday = 6
+        dayOfWeek = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+        
+        // Get last day of month
+        const lastDay = new Date(year, month + 1, 0).getDate();
+        
+        // Get last day of previous month
+        const prevMonthLastDay = new Date(year, month, 0).getDate();
+        
+        const today = new Date();
+        const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+        
+        let weekHours = 0;
+        let dayCount = 0;
+        
+        // Add previous month's days
+        for (let i = dayOfWeek - 1; i >= 0; i--) {
+            const day = prevMonthLastDay - i;
+            const cell = document.createElement('div');
+            cell.className = 'calendar-day other-month';
+            cell.innerHTML = `<div class="calendar-day-number">${day}</div>`;
+            calendarGrid.appendChild(cell);
+            dayCount++;
+        }
+        
+        // Add current month's days
+        for (let day = 1; day <= lastDay; day++) {
+            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            const hours = hoursPerDay[dateStr] || 0;
+            weekHours += hours;
+            
+            const cell = document.createElement('div');
+            cell.className = 'calendar-day';
+            
+            if (dateStr === todayStr) {
+                cell.classList.add('today');
+            }
+            
+            if (hours > 0) {
+                cell.classList.add('has-entries');
+            }
+            
+            const hoursText = hours > 0 ? `${hours.toFixed(1)}h` : '';
+            cell.innerHTML = `
+                <div class="calendar-day-number">${day}</div>
+                ${hoursText ? `<div class="calendar-day-hours">${hoursText}</div>` : ''}
+            `;
+            
+            cell.addEventListener('click', () => {
+                // Filter entries for this day (future feature)
+                console.log('Clicked day:', dateStr, 'Hours:', hours);
+            });
+            
+            calendarGrid.appendChild(cell);
+            dayCount++;
+            
+            // Add week total at end of week (Sunday)
+            if (dayCount % 7 === 0) {
+                const weekTotal = document.createElement('div');
+                weekTotal.className = 'calendar-week-total';
+                weekTotal.textContent = `${weekHours.toFixed(1)}h`;
+                calendarGrid.appendChild(weekTotal);
+                weekHours = 0;
+            }
+        }
+        
+        // Add next month's days to fill the grid
+        const remainingCells = (7 - (dayCount % 7)) % 7;
+        for (let day = 1; day <= remainingCells; day++) {
+            const cell = document.createElement('div');
+            cell.className = 'calendar-day other-month';
+            cell.innerHTML = `<div class="calendar-day-number">${day}</div>`;
+            calendarGrid.appendChild(cell);
+            dayCount++;
+        }
+        
+        // Add final week total if needed
+        if (weekHours > 0) {
+            const weekTotal = document.createElement('div');
+            weekTotal.className = 'calendar-week-total';
+            weekTotal.textContent = `${weekHours.toFixed(1)}h`;
+            calendarGrid.appendChild(weekTotal);
+        }
+    }
+
     function render() {
         console.log('[Render] Starting render');
+        
+        // Render calendar
+        renderCalendar();
+        
+        // Render entries list
         entriesEl.innerHTML = '';
         const list = loadLocal();
         console.log('[Render] Rendering', list.length, 'entries');
@@ -683,6 +874,21 @@
 
     saveServerBtn.addEventListener('click', () => saveToServer(false));
     loadServerBtn.addEventListener('click', () => loadFromServer(false));
+
+    // Calendar navigation
+    if (calendarPrev) {
+        calendarPrev.addEventListener('click', () => {
+            currentCalendarDate.setMonth(currentCalendarDate.getMonth() - 1);
+            renderCalendar();
+        });
+    }
+
+    if (calendarNext) {
+        calendarNext.addEventListener('click', () => {
+            currentCalendarDate.setMonth(currentCalendarDate.getMonth() + 1);
+            renderCalendar();
+        });
+    }
 
     // Export to CSV
     if (exportCsvBtn) {

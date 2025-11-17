@@ -349,6 +349,102 @@ input[type="password"]:focus {
     justify-content: flex-end;
 }
 
+/* Calendar View */
+.calendar-container {
+    background: white;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 20px;
+    box-shadow: var(--shadow);
+}
+
+.calendar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.calendar-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+}
+
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 4px;
+}
+
+.calendar-weekday {
+    text-align: center;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    padding: 8px 4px;
+    text-transform: uppercase;
+}
+
+.calendar-day {
+    aspect-ratio: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+}
+
+.calendar-day:hover {
+    background: var(--card);
+    border-color: var(--accent);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+}
+
+.calendar-day.today {
+    border-color: var(--accent);
+    background: rgba(37, 99, 235, 0.05);
+}
+
+.calendar-day.other-month {
+    opacity: 0.3;
+}
+
+.calendar-day.has-entries {
+    background: rgba(37, 99, 235, 0.1);
+    border-color: var(--accent);
+}
+
+.calendar-day-number {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.calendar-day-hours {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+
+.calendar-week-total {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--accent);
+    background: rgba(37, 99, 235, 0.05);
+    border-radius: 8px;
+}
+
 .entries-list {
     display: flex;
     flex-direction: column;
@@ -470,6 +566,27 @@ input[type="password"]:focus {
 
 .error-message:not(:empty) {
     display: block;
+}
+
+/* Mobile Calendar Adjustments */
+@media (max-width: 767px) {
+    .calendar-day-number {
+        font-size: 0.8rem;
+    }
+    
+    .calendar-day-hours {
+        font-size: 0.6rem;
+    }
+    
+    .calendar-weekday {
+        font-size: 0.65rem;
+        padding: 6px 2px;
+    }
+    
+    .calendar-week-total {
+        font-size: 0.7rem;
+        padding: 6px 2px;
+    }
 }
 
 /* Tablet and Desktop */
