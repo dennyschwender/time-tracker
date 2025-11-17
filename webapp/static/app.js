@@ -18,9 +18,49 @@
     const timerStartBtn = document.getElementById('timer_start');
     const timerStopBtn = document.getElementById('timer_stop');
 
+    // Navigation elements
+    const menuToggle = document.getElementById('menu_toggle');
+    const mobileMenu = document.getElementById('mobile_menu');
+    const navItems = document.querySelectorAll('.nav-item');
+    const views = document.querySelectorAll('.view');
+
     // Keys
     const ENTRIES_KEY = 'timetracker_entries';
     const RUNNING_KEY = 'timetracker_running';
+
+    // View switching
+    function switchView(viewName) {
+        views.forEach(view => {
+            view.classList.remove('active');
+        });
+        navItems.forEach(item => {
+            item.classList.remove('active');
+        });
+        
+        const targetView = document.getElementById(`view_${viewName}`);
+        const targetNav = document.querySelector(`[data-view="${viewName}"]`);
+        
+        if (targetView) targetView.classList.add('active');
+        if (targetNav) targetNav.classList.add('active');
+        
+        // If switching to entries view, render them
+        if (viewName === 'entries') {
+            render();
+        }
+    }
+
+    // Navigation handlers
+    navItems.forEach(item => {
+        item.addEventListener('click', () => {
+            const view = item.getAttribute('data-view');
+            switchView(view);
+        });
+    });
+
+    menuToggle.addEventListener('click', () => {
+        const isHidden = mobileMenu.getAttribute('aria-hidden') === 'true';
+        mobileMenu.setAttribute('aria-hidden', !isHidden);
+    });
 
     // Helpers
     function loadLocal() {
@@ -67,86 +107,35 @@
     function fmtEntryCard(e, idx) {
         const wrap = document.createElement('div');
         wrap.className = 'entry-card';
+        
         const left = document.createElement('div');
         left.className = 'entry-left';
+        
         const meta = document.createElement('div');
         meta.className = 'entry-meta';
         meta.textContent = `${e.date} · ${e.start}–${e.end} ${e.is_absence ? '🏖' : ''}`;
+        
         const desc = document.createElement('div');
-        desc.textContent = e.description || '';
+        desc.textContent = e.description || '(No description)';
+        
         left.appendChild(meta);
         left.appendChild(desc);
+        
         const actions = document.createElement('div');
         actions.className = 'entry-actions';
-        const del = document.createElement('button');
-        del.textContent = 'Delete';
-        del.addEventListener('click', () => {
-            if (!confirm('Delete this entry?')) return;
-            const list = loadLocal();
-            const deleted = list.splice(idx, 1)[0];
-            saveLocal(list);
-            // store last deleted for undo
-            sessionStorage.setItem('timetracker_last_deleted', JSON.stringify({ entry: deleted, index: idx }));
-            // show undo in status
-            showUndoStatus();
-            render();
-        });
-
-
+        
         // Edit button
         const edit = document.createElement('button');
-        edit.textContent = 'Edit';
+        edit.textContent = '✏️ Edit';
         edit.addEventListener('click', () => {
-            // open modal and populate fields
-            const modal = document.getElementById('edit_modal');
-            const d = document.getElementById('edit_date');
-            const s = document.getElementById('edit_start');
-            const en = document.getElementById('edit_end');
-            const desc = document.getElementById('edit_description');
-            // populate with current values
-            d.value = e.date || '';
-            s.value = e.start || '';
-            en.value = e.end || '';
-            desc.value = e.description || '';
-            modal.setAttribute('aria-hidden', 'false');
-
-            // attach save handler
-            const saveBtn = document.getElementById('edit_save');
-            const cancelBtn = document.getElementById('edit_cancel');
-
-            function cleanup() {
-                saveBtn.removeEventListener('click', onSave);
-                cancelBtn.removeEventListener('click', onCancel);
-                modal.setAttribute('aria-hidden', 'true');
-            }
-
-            function onSave() {
-                const list = loadLocal();
-                const item = list[idx];
-                item.date = d.value;
-                item.start = s.value;
-                item.end = en.value;
-                item.description = desc.value;
-                if (item.date && item.start) item.start_iso = `${item.date}T${item.start}`;
-                if (item.date && item.end) item.end_iso = `${item.date}T${item.end}`;
-                saveLocal(list);
-                cleanup();
-                render();
-            }
-
-            function onCancel() {
-                cleanup();
-            }
-
-            saveBtn.addEventListener('click', onSave);
-            cancelBtn.addEventListener('click', onCancel);
+            openEditModal(e, idx);
         });
         actions.appendChild(edit);
 
         // Resume button (only if entry has start_iso)
         if (e.start_iso) {
             const resumeBtn = document.createElement('button');
-            resumeBtn.textContent = 'Resume';
+            resumeBtn.textContent = '▶️ Resume';
             resumeBtn.addEventListener('click', () => {
                 if (loadRunning()) {
                     alert('A timer is already running. Stop it first.');
@@ -161,17 +150,80 @@
                     description: e.description || ''
                 };
                 saveRunning(running);
-                // start UI timer
+                // start UI timer and switch to timer view
                 updateTimerDisplay();
                 startTimerInterval();
+                switchView('timer');
                 render();
             });
             actions.appendChild(resumeBtn);
         }
+        
+        // Delete button
+        const del = document.createElement('button');
+        del.textContent = '🗑️ Delete';
+        del.addEventListener('click', () => {
+            if (!confirm('Delete this entry?')) return;
+            const list = loadLocal();
+            const deleted = list.splice(idx, 1)[0];
+            saveLocal(list);
+            // store last deleted for undo
+            sessionStorage.setItem('timetracker_last_deleted', JSON.stringify({ entry: deleted, index: idx }));
+            // show undo in status
+            showUndoStatus();
+            render();
+        });
         actions.appendChild(del);
+        
         wrap.appendChild(left);
         wrap.appendChild(actions);
         return wrap;
+    }
+
+    function openEditModal(e, idx) {
+        const modal = document.getElementById('edit_modal');
+        const d = document.getElementById('edit_date');
+        const s = document.getElementById('edit_start');
+        const en = document.getElementById('edit_end');
+        const desc = document.getElementById('edit_description');
+        
+        // populate with current values
+        d.value = e.date || '';
+        s.value = e.start || '';
+        en.value = e.end || '';
+        desc.value = e.description || '';
+        modal.setAttribute('aria-hidden', 'false');
+
+        // attach save handler
+        const saveBtn = document.getElementById('edit_save');
+        const cancelBtn = document.getElementById('edit_cancel');
+
+        function cleanup() {
+            saveBtn.removeEventListener('click', onSave);
+            cancelBtn.removeEventListener('click', onCancel);
+            modal.setAttribute('aria-hidden', 'true');
+        }
+
+        function onSave() {
+            const list = loadLocal();
+            const item = list[idx];
+            item.date = d.value;
+            item.start = s.value;
+            item.end = en.value;
+            item.description = desc.value;
+            if (item.date && item.start) item.start_iso = `${item.date}T${item.start}`;
+            if (item.date && item.end) item.end_iso = `${item.date}T${item.end}`;
+            saveLocal(list);
+            cleanup();
+            render();
+        }
+
+        function onCancel() {
+            cleanup();
+        }
+
+        saveBtn.addEventListener('click', onSave);
+        cancelBtn.addEventListener('click', onCancel);
     }
 
     function startTimerInterval() {
@@ -207,7 +259,16 @@
     function render() {
         entriesEl.innerHTML = '';
         const list = loadLocal();
-        list.forEach((e, i) => entriesEl.appendChild(fmtEntryCard(e, i)));
+        if (list.length === 0) {
+            const empty = document.createElement('div');
+            empty.style.textAlign = 'center';
+            empty.style.padding = '40px 20px';
+            empty.style.color = 'var(--text-muted)';
+            empty.innerHTML = '<p>No entries yet</p><p style="font-size: 2rem; margin-top: 12px;">📝</p>';
+            entriesEl.appendChild(empty);
+        } else {
+            list.forEach((e, i) => entriesEl.appendChild(fmtEntryCard(e, i)));
+        }
     }
 
     // Timer
@@ -260,6 +321,7 @@
         saveLocal(list);
         saveRunning(null);
         if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+        timerDescEl.value = '';
         updateTimerDisplay();
         render();
     }
@@ -276,9 +338,20 @@
             description: descEl.value || '',
             is_absence: !!isAbsEl.checked,
         };
+        if (!e.date || !e.start || !e.end) {
+            alert('Please fill in date, start time, and end time');
+            return;
+        }
         const list = loadLocal();
         list.push(e);
         saveLocal(list);
+        // Clear form
+        descEl.value = '';
+        isAbsEl.checked = false;
+        // Show success and switch to entries view
+        statusEl.textContent = 'Entry added successfully!';
+        setTimeout(() => { statusEl.textContent = ''; }, 2000);
+        switchView('entries');
         render();
     });
 
