@@ -313,3 +313,53 @@ pyrightconfig.json
 
 # End of https://www.toptal.com/developers/gitignore/api/visualstudiocode,python,macos,flask
 .DS_Store
+
+# TimeTracking App Specific
+# User data directories (desktop app stores data here via appdirs)
+.timeTrackerData/
+timedata.json
+
+# PyQt application data
+*.pyc
+*.pyo
+
+# User settings and config
+config.json
+
+# Excel exports (generated reports)
+*.xlsx
+
+# Docker volumes and data
+webapp_data/
+
+# SQLite databases (both desktop and web)
+*.db
+*.sqlite
+*.sqlite3
+web_data.db
+
+# Development and testing
+.pytest_cache/
+test_*.py.bak
+
+# IDE specific (PyCharm)
+.idea/
+
+# Logs
+*.log
+debug.log
+
+# Environment variables
+.env
+.env.local
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Operating system files
+Thumbs.db
+
+# Exclude pyrightconfig.json (already in the template above)
+# pyrightconfig.json - uncomment if you want to ignore it

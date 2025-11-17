@@ -76,27 +76,57 @@ Use File -> Export Report... in the app to generate an Excel `.xlsx` report for 
 
 ## Web application (SPA + Flask)
 
-The web UI is a single-page app (static) served by a small Flask backend. By default the client stores everything in browser `localStorage`. Server-side persistence is optional and controlled by an environment variable.
+The web UI is a single-page app (static) served by a small Flask backend.
+
+**Authentication:** The webapp now requires user authentication with username and PIN. Each user's data is stored separately and securely (PINs are hashed with SHA-256). By default the client stores everything in browser `localStorage`. Server-side persistence is optional and controlled by an environment variable.
+
+### Configuration
+
+Create a `.env` file in the project root (copy from `.env.example`):
+
+```bash
+cp .env.example .env
+```
+
+Then edit `.env` and set your own values:
+
+```bash
+# Generate a secure random secret key
+SECRET_KEY=your-secure-random-secret-key-here
+USE_SERVER_DB=1
+```
+
+**Note:** The `.env` file is git-ignored to keep your secrets safe.
+
+### Running the webapp
 
 Run the webapp (development server):
 
 ```bash
 cd webapp
 . ../.venv/bin/activate   # if not already active
-../.venv/bin/python app.py
+python app.py  # automatically loads .env file
 ```
 
-By default the server listens on port `5000`. You can override the port with `PORT` env var and enable server DB persistence with `USE_SERVER_DB=1`.
+By default the server listens on port `5000`. You can override the port in `.env` with `PORT=5001`.
 
-Examples:
+### Docker Deployment
+
+The Docker setup automatically reads from your `.env` file:
 
 ```bash
-# run on port 5001
-PORT=5001 ../.venv/bin/python app.py
-
-# enable server-side SQLite persistence
-USE_SERVER_DB=1 ../.venv/bin/python app.py
+docker-compose up --build
 ```
+
+The webapp will be available at `http://localhost:5001`
+
+### Web App Features
+
+- **Multi-user support:** Each user has their own account with username and PIN
+- **Secure authentication:** PINs are hashed and stored securely
+- **User-specific data:** Entries are isolated per user
+- **Mobile-friendly:** Responsive design with bottom navigation on mobile
+- **Local + Server storage:** Use localStorage for offline, sync to server when authenticated
 
 Notes:
 

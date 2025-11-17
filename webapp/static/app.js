@@ -1,4 +1,14 @@
 (() => {
+    // Auth elements
+    const authModal = document.getElementById('auth_modal');
+    const authUsername = document.getElementById('auth_username');
+    const authPin = document.getElementById('auth_pin');
+    const authError = document.getElementById('auth_error');
+    const authLogin = document.getElementById('auth_login');
+    const authRegister = document.getElementById('auth_register');
+    const currentUserEl = document.getElementById('current_user');
+    const logoutBtn = document.getElementById('logout_btn');
+
     // Elements
     const dateEl = document.getElementById('date');
     const startEl = document.getElementById('start');
@@ -27,6 +37,211 @@
     // Keys
     const ENTRIES_KEY = 'timetracker_entries';
     const RUNNING_KEY = 'timetracker_running';
+
+    // Authentication state
+    let isAuthenticated = false;
+    let currentUsername = null;
+    let serverDbEnabled = false;
+    let autoSyncInterval = null;
+
+    // Check authentication status
+    async function checkAuth() {
+        try {
+            const resp = await fetch('/api/auth/status');
+            const data = await resp.json();
+            if (data.authenticated) {
+                isAuthenticated = true;
+                currentUsername = data.username;
+                showApp();
+                // Check if server DB is enabled
+                const pingResp = await fetch('/api/ping');
+                const pingData = await pingResp.json();
+                serverDbEnabled = pingData.server_db_enabled;
+                if (serverDbEnabled) {
+                    // Load data from server on startup
+                    await loadFromServer();
+                    // Start auto-sync every 30 seconds
+                    startAutoSync();
+                }
+            } else {
+                showAuthModal();
+            }
+        } catch (err) {
+            showAuthModal();
+        }
+    }
+
+    function startAutoSync() {
+        if (autoSyncInterval) clearInterval(autoSyncInterval);
+        // Auto-sync every 30 seconds
+        autoSyncInterval = setInterval(() => {
+            if (isAuthenticated && serverDbEnabled) {
+                saveToServer(true); // silent save
+            }
+        }, 30000);
+    }
+
+    function stopAutoSync() {
+        if (autoSyncInterval) {
+            clearInterval(autoSyncInterval);
+            autoSyncInterval = null;
+        }
+    }
+
+    async function saveToServer(silent = false) {
+        if (!isAuthenticated) {
+            if (!silent) statusEl.textContent = 'Please login first';
+            return;
+        }
+        const list = loadLocal();
+        if (!silent) statusEl.textContent = 'Saving...';
+        try {
+            const resp = await fetch('/api/save_entries', { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify({ entries: list }) 
+            });
+            const json = await resp.json();
+            if (resp.status === 401) {
+                if (!silent) statusEl.textContent = 'Session expired. Please login again.';
+                showAuthModal();
+            } else {
+                if (!silent) statusEl.textContent = json.error ? JSON.stringify(json) : `Saved ${json.saved} entries`;
+            }
+        } catch (err) {
+            if (!silent) statusEl.textContent = `Error: ${err}`;
+        }
+    }
+
+    async function loadFromServer(silent = false) {
+        if (!isAuthenticated) {
+            if (!silent) statusEl.textContent = 'Please login first';
+            return;
+        }
+        if (!silent) statusEl.textContent = 'Loading...';
+        try {
+            const resp = await fetch('/api/load_entries');
+            const json = await resp.json();
+            if (resp.status === 401) {
+                if (!silent) statusEl.textContent = 'Session expired. Please login again.';
+                showAuthModal();
+            } else if (json.entries) {
+                saveLocal(json.entries);
+                render();
+                if (!silent) statusEl.textContent = `Loaded ${json.entries.length} entries`;
+            } else {
+                if (!silent) statusEl.textContent = JSON.stringify(json);
+            }
+        } catch (err) {
+            if (!silent) statusEl.textContent = `Error: ${err}`;
+        }
+    }
+
+    function showAuthModal() {
+        authModal.setAttribute('aria-hidden', 'false');
+        authError.textContent = '';
+        stopAutoSync();
+    }
+
+    function hideAuthModal() {
+        authModal.setAttribute('aria-hidden', 'true');
+    }
+
+    function showApp() {
+        hideAuthModal();
+        currentUserEl.textContent = `👤 ${currentUsername}`;
+        logoutBtn.style.display = 'block';
+    }
+
+    // Auth handlers
+    authLogin.addEventListener('click', async () => {
+        const username = authUsername.value.trim();
+        const pin = authPin.value.trim();
+        
+        if (!username || !pin) {
+            authError.textContent = 'Please enter username and PIN';
+            return;
+        }
+
+        try {
+            const resp = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, pin })
+            });
+            const data = await resp.json();
+            
+            if (resp.ok) {
+                isAuthenticated = true;
+                currentUsername = data.username;
+                showApp();
+                authUsername.value = '';
+                authPin.value = '';
+            } else {
+                authError.textContent = data.error || 'Login failed';
+            }
+        } catch (err) {
+            authError.textContent = 'Connection error';
+        }
+    });
+
+    authRegister.addEventListener('click', async () => {
+        const username = authUsername.value.trim();
+        const pin = authPin.value.trim();
+        
+        if (!username || !pin) {
+            authError.textContent = 'Please enter username and PIN';
+            return;
+        }
+
+        if (pin.length < 4) {
+            authError.textContent = 'PIN must be at least 4 digits';
+            return;
+        }
+
+        try {
+            const resp = await fetch('/api/auth/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, pin })
+            });
+            const data = await resp.json();
+            
+            if (resp.ok) {
+                isAuthenticated = true;
+                currentUsername = data.username;
+                showApp();
+                authUsername.value = '';
+                authPin.value = '';
+            } else {
+                authError.textContent = data.error || 'Registration failed';
+            }
+        } catch (err) {
+            authError.textContent = 'Connection error';
+        }
+    });
+
+    logoutBtn.addEventListener('click', async () => {
+        try {
+            await fetch('/api/auth/logout', { method: 'POST' });
+            isAuthenticated = false;
+            currentUsername = null;
+            serverDbEnabled = false;
+            stopAutoSync();
+            logoutBtn.style.display = 'none';
+            currentUserEl.textContent = '';
+            showAuthModal();
+        } catch (err) {
+            console.error('Logout error:', err);
+        }
+    });
+
+    // Allow Enter key to login
+    authPin.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            authLogin.click();
+        }
+    });
 
     // View switching
     function switchView(viewName) {
@@ -324,6 +539,10 @@
         timerDescEl.value = '';
         updateTimerDisplay();
         render();
+        // Auto-save to server if enabled
+        if (serverDbEnabled && isAuthenticated) {
+            saveToServer(true);
+        }
     }
 
     timerStartBtn.addEventListener('click', () => startTimer());
@@ -353,36 +572,14 @@
         setTimeout(() => { statusEl.textContent = ''; }, 2000);
         switchView('entries');
         render();
-    });
-
-    saveServerBtn.addEventListener('click', async () => {
-        const list = loadLocal();
-        statusEl.textContent = 'Saving...';
-        try {
-            const resp = await fetch('/api/save_entries', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ entries: list }) });
-            const json = await resp.json();
-            statusEl.textContent = json.error ? JSON.stringify(json) : `Saved ${json.saved}`;
-        } catch (err) {
-            statusEl.textContent = `Error: ${err}`;
+        // Auto-save to server if enabled
+        if (serverDbEnabled && isAuthenticated) {
+            saveToServer(true);
         }
     });
 
-    loadServerBtn.addEventListener('click', async () => {
-        statusEl.textContent = 'Loading...';
-        try {
-            const resp = await fetch('/api/load_entries');
-            const json = await resp.json();
-            if (json.entries) {
-                saveLocal(json.entries);
-                render();
-                statusEl.textContent = `Loaded ${json.entries.length}`;
-            } else {
-                statusEl.textContent = JSON.stringify(json);
-            }
-        } catch (err) {
-            statusEl.textContent = `Error: ${err}`;
-        }
-    });
+    saveServerBtn.addEventListener('click', () => saveToServer(false));
+    loadServerBtn.addEventListener('click', () => loadFromServer(false));
 
     // initialize date input with today
     const now = new Date();
@@ -396,4 +593,7 @@
     updateTimerDisplay();
     render();
     showUndoStatus();
+    
+    // Check authentication on startup
+    checkAuth();
 })();

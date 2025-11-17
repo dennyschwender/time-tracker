@@ -4,8 +4,8 @@ services:
       context: ./webapp
     ports:
       - "5001:5000"
-    environment:
-      - USE_SERVER_DB=1
+    env_file:
+      - .env
     volumes:
       - ./webapp:/app
       - ./.timeTrackerData:/root/.local/share/TimeTrackerWeb

@@ -9,12 +9,40 @@
 </head>
 
 <body>
+    <!-- Login/Register Modal -->
+    <div id="auth_modal" class="modal" aria-hidden="false">
+        <div class="modal-content auth-modal">
+            <h2>🔐 TimeTracker</h2>
+            <p class="info-text">Login or create a new account</p>
+            
+            <div id="auth_form">
+                <label>
+                    <span>Username</span>
+                    <input type="text" id="auth_username" placeholder="Enter username" autocomplete="username">
+                </label>
+                <label>
+                    <span>PIN (4+ digits)</span>
+                    <input type="password" id="auth_pin" placeholder="Enter PIN" autocomplete="current-password" inputmode="numeric">
+                </label>
+                <div id="auth_error" class="error-message"></div>
+                <div class="form-actions">
+                    <button id="auth_login" class="btn btn-primary btn-block">Login</button>
+                    <button id="auth_register" class="btn btn-secondary btn-block">Create Account</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <header class="site-header">
         <div class="header-content">
             <h1>⏱️ TimeTracker</h1>
-            <button id="menu_toggle" class="menu-toggle" aria-label="Toggle menu">
-                <span class="hamburger"></span>
-            </button>
+            <div class="header-right">
+                <span id="current_user" class="user-badge"></span>
+                <button id="logout_btn" class="btn-icon" title="Logout" style="display:none;">🚪</button>
+                <button id="menu_toggle" class="menu-toggle" aria-label="Toggle menu">
+                    <span class="hamburger"></span>
+                </button>
+            </div>
         </div>
     </header>
 
