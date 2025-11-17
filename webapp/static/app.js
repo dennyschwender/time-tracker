@@ -362,7 +362,20 @@
         const edit = document.createElement('button');
         edit.textContent = '✏️ Edit';
         edit.addEventListener('click', () => {
-            openEditModal(e, idx);
+            const list = loadLocal();
+            // Find the current index of this entry
+            const currentIdx = list.findIndex(entry => 
+                entry.date === e.date && 
+                entry.start === e.start && 
+                entry.end === e.end && 
+                entry.description === e.description
+            );
+            if (currentIdx !== -1) {
+                openEditModal(e, currentIdx);
+            } else {
+                alert('Entry not found');
+                render();
+            }
         });
         actions.appendChild(edit);
 
@@ -376,9 +389,20 @@
                     return;
                 }
                 const list = loadLocal();
-                // remove this entry from storage so stop will re-add updated one
-                list.splice(idx, 1);
-                saveLocal(list);
+                // Find the current index of this entry
+                const currentIdx = list.findIndex(entry => 
+                    entry.date === e.date && 
+                    entry.start === e.start && 
+                    entry.end === e.end && 
+                    entry.description === e.description
+                );
+                
+                if (currentIdx !== -1) {
+                    // remove this entry from storage so stop will re-add updated one
+                    list.splice(currentIdx, 1);
+                    saveLocal(list);
+                }
+                
                 const running = {
                     start_iso: e.start_iso,
                     description: e.description || ''
@@ -399,10 +423,24 @@
         del.addEventListener('click', () => {
             if (!confirm('Delete this entry?')) return;
             const list = loadLocal();
-            const deleted = list.splice(idx, 1)[0];
+            // Find the current index of this entry (in case list changed)
+            const currentIdx = list.findIndex(entry => 
+                entry.date === e.date && 
+                entry.start === e.start && 
+                entry.end === e.end && 
+                entry.description === e.description
+            );
+            
+            if (currentIdx === -1) {
+                alert('Entry not found');
+                render();
+                return;
+            }
+            
+            const deleted = list.splice(currentIdx, 1)[0];
             saveLocal(list);
             // store last deleted for undo
-            sessionStorage.setItem('timetracker_last_deleted', JSON.stringify({ entry: deleted, index: idx }));
+            sessionStorage.setItem('timetracker_last_deleted', JSON.stringify({ entry: deleted, index: currentIdx }));
             // show undo in status
             showUndoStatus();
             render();
@@ -592,6 +630,10 @@
             alert('Please fill in date, start time, and end time');
             return;
         }
+        // Add ISO timestamps for duration calculations
+        e.start_iso = `${e.date}T${e.start}`;
+        e.end_iso = `${e.date}T${e.end}`;
+        
         const list = loadLocal();
         list.push(e);
         saveLocal(list);
@@ -613,62 +655,69 @@
     loadServerBtn.addEventListener('click', () => loadFromServer(false));
 
     // Export to CSV
-    exportCsvBtn.addEventListener('click', () => {
-        const list = loadLocal();
-        if (list.length === 0) {
-            alert('No entries to export');
-            return;
-        }
-
-        // Create CSV content
-        let csv = 'Date,Start Time,End Time,Duration (hours),Description,Type\n';
-        
-        // Sort entries by date and start time
-        const sortedList = [...list].sort((a, b) => {
-            const dateCompare = (a.date || '').localeCompare(b.date || '');
-            if (dateCompare !== 0) return dateCompare;
-            return (a.start || '').localeCompare(b.start || '');
-        });
-
-        sortedList.forEach(e => {
-            const date = e.date || '';
-            const start = e.start || '';
-            const end = e.end || '';
-            const description = (e.description || '').replace(/"/g, '""'); // Escape quotes
-            const type = e.is_absence ? 'Absence' : 'Work';
-            
-            // Calculate duration in hours
-            let duration = 0;
-            if (e.start_iso && e.end_iso) {
-                try {
-                    const startTime = new Date(e.start_iso);
-                    const endTime = new Date(e.end_iso);
-                    const diffMs = endTime - startTime;
-                    duration = (diffMs / (1000 * 60 * 60)).toFixed(2);
-                } catch (err) {
-                    duration = 0;
-                }
+    if (exportCsvBtn) {
+        exportCsvBtn.addEventListener('click', () => {
+            const list = loadLocal();
+            if (list.length === 0) {
+                alert('No entries to export');
+                return;
             }
-            
-            csv += `${date},${start},${end},${duration},"${description}",${type}\n`;
-        });
 
-        // Create download link
-        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        const url = URL.createObjectURL(blob);
-        const filename = `timetracker_export_${new Date().toISOString().slice(0, 10)}.csv`;
-        
-        link.setAttribute('href', url);
-        link.setAttribute('download', filename);
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        statusEl.textContent = `Exported ${list.length} entries to ${filename}`;
-        setTimeout(() => { statusEl.textContent = ''; }, 3000);
-    });
+            // Create CSV content
+            let csv = 'Date,Start Time,End Time,Duration (hours),Description,Type\n';
+            
+            // Sort entries by date and start time
+            const sortedList = [...list].sort((a, b) => {
+                const dateCompare = (a.date || '').localeCompare(b.date || '');
+                if (dateCompare !== 0) return dateCompare;
+                return (a.start || '').localeCompare(b.start || '');
+            });
+
+            sortedList.forEach(e => {
+                const date = e.date || '';
+                const start = e.start || '';
+                const end = e.end || '';
+                const description = (e.description || '').replace(/"/g, '""'); // Escape quotes
+                const type = e.is_absence ? 'Absence' : 'Work';
+                
+                // Calculate duration in hours
+                let duration = 0;
+                if (date && start && end) {
+                    try {
+                        // Build ISO strings if they don't exist
+                        const startIso = e.start_iso || `${date}T${start}`;
+                        const endIso = e.end_iso || `${date}T${end}`;
+                        const startTime = new Date(startIso);
+                        const endTime = new Date(endIso);
+                        const diffMs = endTime - startTime;
+                        duration = (diffMs / (1000 * 60 * 60)).toFixed(2);
+                    } catch (err) {
+                        console.error('Error calculating duration:', err);
+                        duration = 0;
+                    }
+                }
+                
+                csv += `${date},${start},${end},${duration},"${description}",${type}\n`;
+            });
+
+            // Create download link
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            const filename = `timetracker_export_${new Date().toISOString().slice(0, 10)}.csv`;
+            
+            link.setAttribute('href', url);
+            link.setAttribute('download', filename);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            
+            statusEl.textContent = `Exported ${list.length} entries to ${filename}`;
+            setTimeout(() => { statusEl.textContent = ''; }, 3000);
+        });
+    }
 
     // initialize date input with today
     const now = new Date();
