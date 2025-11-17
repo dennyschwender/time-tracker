@@ -8,8 +8,5 @@ services:
       - USE_SERVER_DB=1
     volumes:
       - ./webapp:/app
-      - webapp_data:/root/.local/share/TimeTrackerWeb
+      - ./.timeTrackerData:/root/.local/share/TimeTrackerWeb
     restart: unless-stopped
-
-volumes:
-  webapp_data:
