@@ -59,55 +59,69 @@ This document tracks feature parity between the Desktop (PyQt5) and Web versions
 ### High Priority
 
 1. **✅ COMPLETED - Export Format Alignment**
+
    - [x] Web: CSV export with date range reports
    - [x] Desktop: Excel export already exists
 
 2. **✅ COMPLETED - Theme Support**
+
    - [x] Web: Dark/light theme toggle added
    - [x] Desktop: Already has theme support
 
 3. **✅ COMPLETED - Calendar Features**
+
    - [x] Desktop: Added weekly totals to calendar display
    - [x] Web: Already has weekly totals in calendar grid
 
 4. **✅ COMPLETED - Date Range Reports**
+
    - [x] Web: Added date range report generation
    - [x] Desktop: Already has report dialog
 
 ### Medium Priority
 
-5. **Entry Filtering**
+1. **Entry Filtering**
+
    - [ ] Both: Add search/filter by description
    - [ ] Web: Add ability to click calendar day to filter entries
 
-6. **Calendar Day Click**
+2. **Calendar Day Click**
+
    - [x] Web: Calendar days are clickable (ready for filtering)
    - [x] Desktop: Already selects and shows entries for day
 
-7. **Resume Timer**
+3. **Resume Timer**
+
    - [x] Both: Already implemented
 
 ### Low Priority
-8. **Visual Enhancements**
+
+1. **Visual Enhancements**
+
    - [ ] Desktop: Match web's card-based entry display
    - [ ] Web: Add more visual feedback
 
-9. **Entry Statistics**
+2. **Entry Statistics**
+
    - [ ] Both: Add statistics view (weekly/monthly summaries)
 
 ## 📝 Implementation Notes
 
 ### Absence Calculation
+
 Both versions now correctly implement:
+
 - Absences only subtract from overlapping work entries
 - Non-overlapping absences have no effect on totals
 - Overlap calculation uses min/max of start/end times
 
 ### Data Storage
+
 - **Desktop**: Single JSON file in platform-specific data directory
 - **Web**: localStorage + optional server-side SQLite database
 
 ### Export Functionality
+
 - **Desktop**: Excel (.xlsx) with formatted cells, auto-width columns
 - **Web**: CSV with proper escaping, includes duration calculation
 
