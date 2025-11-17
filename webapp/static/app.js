@@ -299,11 +299,15 @@
     // Helpers
     function loadLocal() {
         const raw = localStorage.getItem(ENTRIES_KEY);
-        return raw ? JSON.parse(raw) : [];
+        const entries = raw ? JSON.parse(raw) : [];
+        console.log('[Storage] loadLocal: loaded', entries.length, 'entries');
+        return entries;
     }
 
     function saveLocal(list) {
+        console.log('[Storage] saveLocal: saving', list.length, 'entries');
         localStorage.setItem(ENTRIES_KEY, JSON.stringify(list));
+        console.log('[Storage] saveLocal: saved successfully');
     }
 
     function loadRunning() {
@@ -421,8 +425,15 @@
         const del = document.createElement('button');
         del.textContent = '🗑️ Delete';
         del.addEventListener('click', () => {
-            if (!confirm('Delete this entry?')) return;
+            console.log('[Delete] Delete button clicked for entry:', e);
+            if (!confirm('Delete this entry?')) {
+                console.log('[Delete] User cancelled deletion');
+                return;
+            }
+            
             const list = loadLocal();
+            console.log('[Delete] Current list has', list.length, 'entries');
+            
             // Find the current index of this entry (in case list changed)
             const currentIdx = list.findIndex(entry => 
                 entry.date === e.date && 
@@ -431,22 +442,34 @@
                 entry.description === e.description
             );
             
+            console.log('[Delete] Found entry at index:', currentIdx);
+            
             if (currentIdx === -1) {
+                console.error('[Delete] Entry not found in list');
                 alert('Entry not found');
                 render();
                 return;
             }
             
             const deleted = list.splice(currentIdx, 1)[0];
+            console.log('[Delete] Removed entry:', deleted);
+            
             saveLocal(list);
+            console.log('[Delete] Saved updated list, now has', list.length, 'entries');
+            
             // store last deleted for undo
             sessionStorage.setItem('timetracker_last_deleted', JSON.stringify({ entry: deleted, index: currentIdx }));
             // show undo in status
             showUndoStatus();
             render();
+            console.log('[Delete] Re-rendered entries list');
+            
             // Auto-save to server if enabled
             if (serverDbEnabled && isAuthenticated) {
+                console.log('[Delete] Auto-syncing to server');
                 saveToServer(true);
+            } else {
+                console.log('[Delete] Auto-sync skipped (serverDbEnabled:', serverDbEnabled, 'isAuthenticated:', isAuthenticated, ')');
             }
         });
         actions.appendChild(del);
@@ -541,8 +564,11 @@
     }
 
     function render() {
+        console.log('[Render] Starting render');
         entriesEl.innerHTML = '';
         const list = loadLocal();
+        console.log('[Render] Rendering', list.length, 'entries');
+        
         if (list.length === 0) {
             const empty = document.createElement('div');
             empty.style.textAlign = 'center';
@@ -551,8 +577,12 @@
             empty.innerHTML = '<p>No entries yet</p><p style="font-size: 2rem; margin-top: 12px;">📝</p>';
             entriesEl.appendChild(empty);
         } else {
-            list.forEach((e, i) => entriesEl.appendChild(fmtEntryCard(e, i)));
+            list.forEach((e, i) => {
+                console.log('[Render] Creating card for entry', i, ':', e);
+                entriesEl.appendChild(fmtEntryCard(e, i));
+            });
         }
+        console.log('[Render] Render complete');
     }
 
     // Timer
