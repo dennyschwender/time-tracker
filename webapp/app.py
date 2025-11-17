@@ -48,6 +48,10 @@ def init_db():
     conn.close()
 
 
+# Initialize database on app startup
+init_db()
+
+
 @app.route("/")
 def index():
     return render_template("index.html")
