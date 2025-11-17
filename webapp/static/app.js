@@ -177,6 +177,15 @@
                 showApp();
                 authUsername.value = '';
                 authPin.value = '';
+                
+                // Check if server DB is enabled and load data
+                const pingResp = await fetch('/api/ping');
+                const pingData = await pingResp.json();
+                serverDbEnabled = pingData.server_db_enabled;
+                if (serverDbEnabled) {
+                    await loadFromServer();
+                    startAutoSync();
+                }
             } else {
                 authError.textContent = data.error || 'Login failed';
             }
@@ -213,6 +222,15 @@
                 showApp();
                 authUsername.value = '';
                 authPin.value = '';
+                
+                // Check if server DB is enabled and load data
+                const pingResp = await fetch('/api/ping');
+                const pingData = await pingResp.json();
+                serverDbEnabled = pingData.server_db_enabled;
+                if (serverDbEnabled) {
+                    await loadFromServer();
+                    startAutoSync();
+                }
             } else {
                 authError.textContent = data.error || 'Registration failed';
             }
