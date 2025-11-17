@@ -4,8 +4,8 @@ services:
     build:
       context: ./TimeTracking/webapp
     ports:
-      - "8000:5000"
+      - "8000:5001"
     environment:
-      - USE_SERVER_DB=0
+      - USE_SERVER_DB=1
     volumes:
       - ./TimeTracking/webapp:/app
