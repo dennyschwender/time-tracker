@@ -4,7 +4,7 @@ services:
     build:
       context: ./webapp
     ports:
-      - "8000:5001"
+      - "5001:5000"
     environment:
       - USE_SERVER_DB=1
     volumes:
