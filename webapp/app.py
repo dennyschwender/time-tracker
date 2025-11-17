@@ -17,6 +17,9 @@ APPAUTHOR = "dennyschwender"
 app = Flask(__name__, static_folder="static", template_folder="templates")
 app.secret_key = os.getenv("SECRET_KEY", "dev-secret-key-change-in-production")
 
+# Disable caching for static files in development
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
+
 # Session configuration
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_COOKIE_SECURE'] = False  # Set to True in production with HTTPS
@@ -200,6 +203,16 @@ init_db()
 @app.route("/")
 def index():
     return render_template("index.html")
+
+
+@app.after_request
+def add_header(response):
+    """Add headers to disable caching for development"""
+    if 'Cache-Control' not in response.headers:
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+    return response
 
 
 @app.route("/api/ping")
