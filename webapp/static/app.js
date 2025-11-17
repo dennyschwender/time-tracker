@@ -20,6 +20,7 @@
     const saveServerBtn = document.getElementById('save_server');
     const loadServerBtn = document.getElementById('load_server');
     const statusEl = document.getElementById('status');
+    const exportCsvBtn = document.getElementById('export_csv');
 
     // Timer elements
     const timerTimeEl = document.getElementById('timer_time');
@@ -405,6 +406,10 @@
             // show undo in status
             showUndoStatus();
             render();
+            // Auto-save to server if enabled
+            if (serverDbEnabled && isAuthenticated) {
+                saveToServer(true);
+            }
         });
         actions.appendChild(del);
         
@@ -449,6 +454,10 @@
             saveLocal(list);
             cleanup();
             render();
+            // Auto-save to server if enabled
+            if (serverDbEnabled && isAuthenticated) {
+                saveToServer(true);
+            }
         }
 
         function onCancel() {
@@ -483,6 +492,10 @@
                 sessionStorage.removeItem('timetracker_last_deleted');
                 statusEl.textContent = 'Restored';
                 render();
+                // Auto-save to server if enabled
+                if (serverDbEnabled && isAuthenticated) {
+                    saveToServer(true);
+                }
             });
         } catch (e) {
             statusEl.textContent = '';
@@ -598,6 +611,64 @@
 
     saveServerBtn.addEventListener('click', () => saveToServer(false));
     loadServerBtn.addEventListener('click', () => loadFromServer(false));
+
+    // Export to CSV
+    exportCsvBtn.addEventListener('click', () => {
+        const list = loadLocal();
+        if (list.length === 0) {
+            alert('No entries to export');
+            return;
+        }
+
+        // Create CSV content
+        let csv = 'Date,Start Time,End Time,Duration (hours),Description,Type\n';
+        
+        // Sort entries by date and start time
+        const sortedList = [...list].sort((a, b) => {
+            const dateCompare = (a.date || '').localeCompare(b.date || '');
+            if (dateCompare !== 0) return dateCompare;
+            return (a.start || '').localeCompare(b.start || '');
+        });
+
+        sortedList.forEach(e => {
+            const date = e.date || '';
+            const start = e.start || '';
+            const end = e.end || '';
+            const description = (e.description || '').replace(/"/g, '""'); // Escape quotes
+            const type = e.is_absence ? 'Absence' : 'Work';
+            
+            // Calculate duration in hours
+            let duration = 0;
+            if (e.start_iso && e.end_iso) {
+                try {
+                    const startTime = new Date(e.start_iso);
+                    const endTime = new Date(e.end_iso);
+                    const diffMs = endTime - startTime;
+                    duration = (diffMs / (1000 * 60 * 60)).toFixed(2);
+                } catch (err) {
+                    duration = 0;
+                }
+            }
+            
+            csv += `${date},${start},${end},${duration},"${description}",${type}\n`;
+        });
+
+        // Create download link
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        const filename = `timetracker_export_${new Date().toISOString().slice(0, 10)}.csv`;
+        
+        link.setAttribute('href', url);
+        link.setAttribute('download', filename);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        statusEl.textContent = `Exported ${list.length} entries to ${filename}`;
+        setTimeout(() => { statusEl.textContent = ''; }, 3000);
+    });
 
     // initialize date input with today
     const now = new Date();

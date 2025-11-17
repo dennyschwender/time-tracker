@@ -344,6 +344,11 @@ input[type="password"]:focus {
 }
 
 /* Entries List */
+.entries-header {
+    display: flex;
+    justify-content: flex-end;
+}
+
 .entries-list {
     display: flex;
     flex-direction: column;
