@@ -20,7 +20,6 @@
     const saveServerBtn = document.getElementById('save_server');
     const loadServerBtn = document.getElementById('load_server');
     const statusEl = document.getElementById('status');
-    const exportCsvBtn = document.getElementById('export_csv');
     const themeToggle = document.getElementById('theme_toggle');
     const reportStartEl = document.getElementById('report_start');
     const reportEndEl = document.getElementById('report_end');
@@ -916,99 +915,6 @@
         });
     }
 
-    // Export to CSV
-    if (exportCsvBtn) {
-        console.log('[Export] Export CSV button found and initialized');
-        exportCsvBtn.addEventListener('click', () => {
-            console.log('[Export] Export button clicked');
-            const list = loadLocal();
-            console.log('[Export] Loaded entries from localStorage:', list.length, 'entries');
-            
-            if (list.length === 0) {
-                console.warn('[Export] No entries to export');
-                alert('No entries to export');
-                return;
-            }
-
-            // Create CSV content
-            let csv = 'Date,Start Time,End Time,Duration (hours),Description,Type\n';
-            console.log('[Export] CSV header created');
-            
-            // Sort entries by date and start time
-            const sortedList = [...list].sort((a, b) => {
-                const dateCompare = (a.date || '').localeCompare(b.date || '');
-                if (dateCompare !== 0) return dateCompare;
-                return (a.start || '').localeCompare(b.start || '');
-            });
-            console.log('[Export] Entries sorted');
-
-            sortedList.forEach((e, idx) => {
-                const date = e.date || '';
-                const start = e.start || '';
-                const end = e.end || '';
-                const description = (e.description || '').replace(/"/g, '""'); // Escape quotes
-                const type = e.is_absence ? 'Absence' : 'Work';
-                
-                // Calculate duration in hours
-                let duration = 0;
-                if (date && start && end) {
-                    try {
-                        // Build ISO strings if they don't exist
-                        const startIso = e.start_iso || `${date}T${start}`;
-                        const endIso = e.end_iso || `${date}T${end}`;
-                        const startTime = new Date(startIso);
-                        const endTime = new Date(endIso);
-                        const diffMs = endTime - startTime;
-                        duration = (diffMs / (1000 * 60 * 60)).toFixed(2);
-                        console.log(`[Export] Entry ${idx + 1}: ${date} ${start}-${end} = ${duration}h`);
-                    } catch (err) {
-                        console.error(`[Export] Error calculating duration for entry ${idx + 1}:`, err, e);
-                        duration = 0;
-                    }
-                } else {
-                    console.warn(`[Export] Entry ${idx + 1} missing date/start/end:`, e);
-                }
-                
-                csv += `${date},${start},${end},${duration},"${description}",${type}\n`;
-            });
-
-            console.log('[Export] CSV content created, length:', csv.length, 'bytes');
-
-            // Create download link
-            try {
-                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-                console.log('[Export] Blob created, size:', blob.size, 'bytes');
-                
-                const link = document.createElement('a');
-                const url = URL.createObjectURL(blob);
-                const filename = `timetracker_export_${new Date().toISOString().slice(0, 10)}.csv`;
-                console.log('[Export] Download filename:', filename);
-                
-                link.setAttribute('href', url);
-                link.setAttribute('download', filename);
-                link.style.visibility = 'hidden';
-                document.body.appendChild(link);
-                console.log('[Export] Download link created and added to DOM');
-                
-                link.click();
-                console.log('[Export] Download link clicked');
-                
-                document.body.removeChild(link);
-                URL.revokeObjectURL(url);
-                console.log('[Export] Cleanup complete');
-                
-                statusEl.textContent = `Exported ${list.length} entries to ${filename}`;
-                setTimeout(() => { statusEl.textContent = ''; }, 3000);
-                console.log('[Export] Export completed successfully');
-            } catch (err) {
-                console.error('[Export] Error creating download:', err);
-                alert('Error creating CSV download: ' + err.message);
-            }
-        });
-    } else {
-        console.error('[Export] Export CSV button not found in DOM');
-    }
-
     // Generate Report
     if (generateReportBtn) {
         generateReportBtn.addEventListener('click', () => {
@@ -1155,8 +1061,7 @@
     }
 
     // initialize date input with today
-    const now = new Date();
-    dateEl.value = now.toISOString().slice(0, 10);
+    dateEl.value = new Date().toISOString().slice(0, 10);
 
     // initialize timer state
     if (loadRunning()) {
