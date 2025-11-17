@@ -147,6 +147,27 @@ class TimeEntryManager:
         self.last_deleted = None
         return True
 
+    def get_week_total(self, week_date: date) -> timedelta:
+        """Calculate total time worked for a week (Monday to Sunday).
+        
+        Args:
+            week_date: Any date in the target week
+            
+        Returns:
+            Total time worked in the week (excluding overlapping absences)
+        """
+        # Find Monday of the week
+        days_since_monday = (week_date.weekday() + 7) % 7
+        monday = week_date - timedelta(days=days_since_monday)
+        
+        # Calculate total for each day of the week
+        total = timedelta()
+        for i in range(7):  # Monday to Sunday
+            day = monday + timedelta(days=i)
+            total += self.get_total_time_for_date(day)
+        
+        return total
+
     def generate_report(self, start_date: date, end_date: date):
         """Generate a report data structure for a date range.
 

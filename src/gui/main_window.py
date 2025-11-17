@@ -211,18 +211,21 @@ class MainWindow(QMainWindow):
 
         entries = self.entry_manager.get_entries_for_date(selected_date)
         total_time = self.entry_manager.get_total_time_for_date(selected_date)
+        week_time = self.entry_manager.get_week_total(selected_date)
         
         # Clear and repopulate entries list
         self.entries_list.clear()
         
         # Add header item
         hours = total_time.total_seconds() / 3600
+        week_hours = week_time.total_seconds() / 3600
         absences = sum(1 for e in entries if e.is_absence)
         
         date_str = selected_date.strftime("%A, %d %B %Y")
         header = QListWidgetItem(
             f"{date_str}\n"
             f"Total Hours Worked: {hours:.2f}h | "
+            f"Week Total: {week_hours:.2f}h | "
             f"Entries: {len(entries)} | "
             f"Absences: {absences}"
         )

@@ -21,6 +21,10 @@
     const loadServerBtn = document.getElementById('load_server');
     const statusEl = document.getElementById('status');
     const exportCsvBtn = document.getElementById('export_csv');
+    const themeToggle = document.getElementById('theme_toggle');
+    const reportStartEl = document.getElementById('report_start');
+    const reportEndEl = document.getElementById('report_end');
+    const generateReportBtn = document.getElementById('generate_report');
 
     // Calendar elements
     const calendarGrid = document.getElementById('calendar_grid');
@@ -270,6 +274,28 @@
             authLogin.click();
         }
     });
+
+    // Theme toggle
+    function loadTheme() {
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+        return savedTheme;
+    }
+
+    function toggleTheme() {
+        const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+        const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-theme', newTheme);
+        localStorage.setItem('theme', newTheme);
+        console.log('[Theme] Switched to', newTheme);
+    }
+
+    if (themeToggle) {
+        themeToggle.addEventListener('click', toggleTheme);
+    }
+
+    // Load saved theme on startup
+    loadTheme();
 
     // View switching
     function switchView(viewName) {
@@ -983,6 +1009,151 @@
         console.error('[Export] Export CSV button not found in DOM');
     }
 
+    // Generate Report
+    if (generateReportBtn) {
+        generateReportBtn.addEventListener('click', () => {
+            const startDate = reportStartEl.value;
+            const endDate = reportEndEl.value;
+            
+            if (!startDate || !endDate) {
+                alert('Please select both start and end dates');
+                return;
+            }
+            
+            if (startDate > endDate) {
+                alert('Start date must be before end date');
+                return;
+            }
+            
+            const list = loadLocal();
+            
+            // Filter entries within date range
+            const filteredEntries = list.filter(e => e.date >= startDate && e.date <= endDate);
+            
+            if (filteredEntries.length === 0) {
+                alert('No entries found in the selected date range');
+                return;
+            }
+            
+            // Generate date range
+            const dates = [];
+            const current = new Date(startDate);
+            const end = new Date(endDate);
+            
+            while (current <= end) {
+                const dateStr = current.toISOString().slice(0, 10);
+                dates.push(dateStr);
+                current.setDate(current.getDate() + 1);
+            }
+            
+            // Group entries by date
+            const entriesByDate = {};
+            filteredEntries.forEach(entry => {
+                if (!entry.date) return;
+                if (!entriesByDate[entry.date]) {
+                    entriesByDate[entry.date] = [];
+                }
+                entriesByDate[entry.date].push(entry);
+            });
+            
+            // Calculate hours per day (work minus overlapping absences)
+            const hoursPerDay = {};
+            Object.keys(entriesByDate).forEach(date => {
+                const entries = entriesByDate[date];
+                const workEntries = entries.filter(e => !e.is_absence);
+                const absenceEntries = entries.filter(e => e.is_absence);
+                
+                let totalHours = 0;
+                
+                workEntries.forEach(workEntry => {
+                    let workStart, workEnd;
+                    
+                    if (workEntry.start_iso && workEntry.end_iso) {
+                        workStart = new Date(workEntry.start_iso);
+                        workEnd = new Date(workEntry.end_iso);
+                    } else if (workEntry.date && workEntry.start && workEntry.end) {
+                        workStart = new Date(`${workEntry.date}T${workEntry.start}`);
+                        workEnd = new Date(`${workEntry.date}T${workEntry.end}`);
+                    } else {
+                        return;
+                    }
+                    
+                    let workDuration = (workEnd - workStart) / (1000 * 60 * 60);
+                    
+                    absenceEntries.forEach(absence => {
+                        let absStart, absEnd;
+                        
+                        if (absence.start_iso && absence.end_iso) {
+                            absStart = new Date(absence.start_iso);
+                            absEnd = new Date(absence.end_iso);
+                        } else if (absence.date && absence.start && absence.end) {
+                            absStart = new Date(`${absence.date}T${absence.start}`);
+                            absEnd = new Date(`${absence.date}T${absence.end}`);
+                        } else {
+                            return;
+                        }
+                        
+                        const overlapStart = new Date(Math.max(workStart, absStart));
+                        const overlapEnd = new Date(Math.min(workEnd, absEnd));
+                        
+                        if (overlapStart < overlapEnd) {
+                            const overlapHours = (overlapEnd - overlapStart) / (1000 * 60 * 60);
+                            workDuration -= overlapHours;
+                        }
+                    });
+                    
+                    totalHours += workDuration;
+                });
+                
+                hoursPerDay[date] = totalHours;
+            });
+            
+            // Create CSV with daily and weekly totals
+            let csv = 'Date,Day,Hours Worked\n';
+            let weekHours = 0;
+            let weekNumber = 1;
+            const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+            
+            dates.forEach((dateStr, idx) => {
+                const date = new Date(dateStr + 'T00:00:00');
+                const dayName = dayNames[date.getDay()];
+                const hours = hoursPerDay[dateStr] || 0;
+                weekHours += hours;
+                
+                csv += `${dateStr},${dayName},${hours.toFixed(2)}\n`;
+                
+                // Add week total on Sunday or last day
+                if (date.getDay() === 0 || idx === dates.length - 1) {
+                    csv += `,,Week ${weekNumber} Total: ${weekHours.toFixed(2)}h\n`;
+                    weekHours = 0;
+                    weekNumber++;
+                    csv += '\n'; // Add blank line between weeks
+                }
+            });
+            
+            // Add grand total
+            const grandTotal = Object.values(hoursPerDay).reduce((sum, h) => sum + h, 0);
+            csv += `,,Grand Total: ${grandTotal.toFixed(2)}h\n`;
+            
+            // Download report
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            const filename = `timetracker_report_${startDate}_to_${endDate}.csv`;
+            
+            link.setAttribute('href', url);
+            link.setAttribute('download', filename);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            
+            statusEl.textContent = `Report generated: ${filteredEntries.length} entries, ${grandTotal.toFixed(2)} hours total`;
+            setTimeout(() => { statusEl.textContent = ''; }, 5000);
+        });
+    }
+
     // initialize date input with today
     const now = new Date();
     dateEl.value = now.toISOString().slice(0, 10);
@@ -995,6 +1166,13 @@
     updateTimerDisplay();
     render();
     showUndoStatus();
+    
+    // Initialize report date inputs with current month
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    if (reportStartEl) reportStartEl.value = firstDay.toISOString().slice(0, 10);
+    if (reportEndEl) reportEndEl.value = lastDay.toISOString().slice(0, 10);
     
     // Check authentication on startup
     checkAuth();

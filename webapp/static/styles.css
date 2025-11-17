@@ -16,6 +16,23 @@
     --nav-height: 70px;
 }
 
+/* Dark Theme */
+[data-theme="dark"] {
+    --bg: #1a1a1a;
+    --card: #2a2a2a;
+    --text: #ffffff;
+    --text-muted: #a0a0a0;
+    --accent: #3b82f6;
+    --accent-hover: #2563eb;
+    --danger: #ef4444;
+    --danger-hover: #dc2626;
+    --secondary: #6b7280;
+    --secondary-hover: #9ca3af;
+    --border: rgba(255, 255, 255, 0.1);
+    --shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.5);
+}
+
 * {
     box-sizing: border-box;
     margin: 0;

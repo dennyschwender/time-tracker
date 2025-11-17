@@ -37,6 +37,7 @@
         <div class="header-content">
             <h1>⏱️ TimeTracker</h1>
             <div class="header-right">
+                <button id="theme_toggle" class="btn-icon" title="Toggle theme">🌓</button>
                 <span id="current_user" class="user-badge"></span>
                 <button id="logout_btn" class="btn-icon" title="Logout" style="display:none;">🚪</button>
                 <button id="menu_toggle" class="menu-toggle" aria-label="Toggle menu">
@@ -129,13 +130,27 @@
         <!-- Sync View -->
         <section id="view_sync" class="view">
             <div class="card sync-card">
-                <h2>Sync Settings</h2>
+                <h2>Sync & Export</h2>
                 <p class="info-text">Sync your entries with the server for backup and access from other devices.</p>
                 <div class="form-actions">
                     <button id="save_server" class="btn btn-primary btn-block">⬆️ Sync to Server</button>
                     <button id="load_server" class="btn btn-secondary btn-block">⬇️ Load from Server</button>
                 </div>
                 <div id="status" class="status-message"></div>
+            </div>
+            
+            <div class="card sync-card" style="margin-top: 20px;">
+                <h2>Generate Report</h2>
+                <p class="info-text">Export a date range report with daily and weekly totals.</p>
+                <label>Start Date
+                    <input type="date" id="report_start">
+                </label>
+                <label>End Date
+                    <input type="date" id="report_end">
+                </label>
+                <div class="form-actions">
+                    <button id="generate_report" class="btn btn-primary btn-block">📊 Generate Report</button>
+                </div>
             </div>
         </section>
     </main>
