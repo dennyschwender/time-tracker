@@ -2,10 +2,10 @@ version: '3.8'
 services:
   webapp:
     build:
-      context: ./TimeTracking/webapp
+      context: ./webapp
     ports:
       - "8000:5001"
     environment:
       - USE_SERVER_DB=1
     volumes:
-      - ./TimeTracking/webapp:/app
+      - ./webapp:/app
