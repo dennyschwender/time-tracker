@@ -521,6 +521,12 @@ input[type="password"]:focus {
     box-shadow: var(--shadow);
 }
 
+.entry-card.absence {
+    border-color: rgba(220, 38, 38, 0.4);
+    background: rgba(220, 38, 38, 0.08);
+    color: var(--danger);
+}
+
 .entry-left {
     margin-bottom: 12px;
 }
@@ -554,6 +560,10 @@ input[type="password"]:focus {
     font-size: 0.9rem;
     font-weight: 500;
     transition: all 0.2s;
+}
+
+.entry-card.absence .entry-meta {
+    color: var(--danger);
 }
 
 .entry-actions button:active {

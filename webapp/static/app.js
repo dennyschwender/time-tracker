@@ -390,6 +390,9 @@
     function fmtEntryCard(e, idx) {
         const wrap = document.createElement('div');
         wrap.className = 'entry-card';
+        if (e.is_absence) {
+            wrap.classList.add('absence');
+        }
         
         const left = document.createElement('div');
         left.className = 'entry-left';
@@ -580,18 +583,33 @@
         return entries;
     }
 
+    function sortEntries(entries) {
+        return [...entries].sort((a, b) => {
+            const dateA = a.date || '';
+            const dateB = b.date || '';
+            if (dateA !== dateB) return dateA.localeCompare(dateB);
+            const startA = a.start || '';
+            const startB = b.start || '';
+            return startA.localeCompare(startB);
+        });
+    }
+
     function openEditModal(e, idx) {
         const modal = document.getElementById('edit_modal');
         const d = document.getElementById('edit_date');
         const s = document.getElementById('edit_start');
         const en = document.getElementById('edit_end');
         const desc = document.getElementById('edit_description');
+        const absenceCheckbox = document.getElementById('edit_is_absence');
         
         // populate with current values
         d.value = e.date || '';
         s.value = e.start || '';
         en.value = e.end || '';
         desc.value = e.description || '';
+        if (absenceCheckbox) {
+            absenceCheckbox.checked = !!e.is_absence;
+        }
         modal.setAttribute('aria-hidden', 'false');
 
         // attach save handler
@@ -610,6 +628,7 @@
             item.date = d.value;
             item.start = s.value;
             item.end = en.value;
+            item.is_absence = absenceCheckbox ? absenceCheckbox.checked : item.is_absence;
             item.description = desc.value;
             if (item.date && item.start) item.start_iso = `${item.date}T${item.start}`;
             if (item.date && item.end) item.end_iso = `${item.date}T${item.end}`;
@@ -898,7 +917,7 @@
         
         // Render entries list
         entriesEl.innerHTML = '';
-        const list = loadLocal();
+        const list = sortEntries(loadLocal());
         console.log('[Render] Rendering', list.length, 'entries');
         updateFilterPanel();
         const filteredList = applyCalendarFilter(list);
