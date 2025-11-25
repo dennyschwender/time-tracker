@@ -376,6 +376,13 @@
         return d.toTimeString().slice(0, 5);
     }
 
+    function formatTimeForDisplay(value) {
+        if (!value) return '';
+        const [hours, minutes] = value.split(':');
+        if (hours == null || minutes == null) return value;
+        return `${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}`;
+    }
+
     function durationSeconds(startIso, endIso) {
         return Math.round((new Date(endIso) - new Date(startIso)) / 1000);
     }
@@ -403,7 +410,9 @@
         
         const meta = document.createElement('div');
         meta.className = 'entry-meta';
-        meta.textContent = `${e.date} · ${e.start}–${e.end} ${e.is_absence ? '🏖' : ''}`;
+        const startLabel = formatTimeForDisplay(e.start);
+        const endLabel = formatTimeForDisplay(e.end);
+        meta.textContent = `${e.date} · ${startLabel}–${endLabel} ${e.is_absence ? '🏖' : ''}`;
         
         left.appendChild(meta);
         if (e.description) {
