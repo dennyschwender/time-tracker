@@ -65,13 +65,14 @@ def sorted_entries(entries: List[TimeEntry]) -> List[TimeEntry]:
 
 def format_entry(entry: TimeEntry, index: Optional[int] = None) -> str:
     label = f"[{index}] " if index is not None else ""
-    desc = entry.description or "(no description)"
     duration = format_duration(entry.duration)
     flags = " [ABSENCE]" if entry.is_absence else ""
-    return (
-        f"{label}{entry.start_time.isoformat()} -> {entry.end_time.isoformat()}"
-        f" ({duration}){flags}\n    {desc}"
-    )
+    lines = [
+        f"{label}{entry.start_time.isoformat()} -> {entry.end_time.isoformat()} ({duration}){flags}"
+    ]
+    if entry.description:
+        lines.append(f"    {entry.description}")
+    return "\n".join(lines)
 
 
 def print_entries_for_date(manager: TimeEntryManager, target: date) -> None:

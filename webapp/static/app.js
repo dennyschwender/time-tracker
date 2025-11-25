@@ -401,11 +401,12 @@
         meta.className = 'entry-meta';
         meta.textContent = `${e.date} · ${e.start}–${e.end} ${e.is_absence ? '🏖' : ''}`;
         
-        const desc = document.createElement('div');
-        desc.textContent = e.description || '(No description)';
-        
         left.appendChild(meta);
-        left.appendChild(desc);
+        if (e.description) {
+            const desc = document.createElement('div');
+            desc.textContent = e.description;
+            left.appendChild(desc);
+        }
         
         const actions = document.createElement('div');
         actions.className = 'entry-actions';

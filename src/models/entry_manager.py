@@ -191,10 +191,14 @@ class TimeEntryManager:
         for d in dates:
             for e in self.get_entries_for_date(d):
                 # use description or label based on entry type
+                trimmed = e.description.strip() if e.description else ""
                 if e.is_absence:
-                    desc = f"🏖 Absence: {e.description.strip() if e.description else '(no description)'}"
+                    if trimmed:
+                        desc = f"🏖 Absence: {trimmed}"
+                    else:
+                        desc = "🏖 Absence"
                 else:
-                    desc = e.description.strip() if e.description else "(no description)"
+                    desc = trimmed
                 
                 seconds = 0
                 try:
