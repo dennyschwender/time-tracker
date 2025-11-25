@@ -24,6 +24,9 @@
     const reportStartEl = document.getElementById('report_start');
     const reportEndEl = document.getElementById('report_end');
     const generateReportBtn = document.getElementById('generate_report');
+    const filterInfoEl = document.getElementById('filter_info');
+    const filterLabelEl = document.getElementById('filter_label');
+    const filterClearBtn = document.getElementById('filter_info_clear');
 
     // Calendar elements
     const calendarGrid = document.getElementById('calendar_grid');
@@ -56,6 +59,7 @@
 
     // Calendar state
     let currentCalendarDate = new Date();
+    let currentCalendarFilter = null;
 
     // Check authentication status
     async function checkAuth() {
@@ -330,6 +334,13 @@
         mobileMenu.setAttribute('aria-hidden', !isHidden);
     });
 
+    if (filterClearBtn) {
+        filterClearBtn.addEventListener('click', () => {
+            clearCalendarFilter();
+            render();
+        });
+    }
+
     // Helpers
     function loadLocal() {
         const raw = localStorage.getItem(ENTRIES_KEY);
@@ -511,6 +522,62 @@
         wrap.appendChild(left);
         wrap.appendChild(actions);
         return wrap;
+    }
+
+    function padNumber(value) {
+        return String(value).padStart(2, '0');
+    }
+
+    function formatIsoFromDate(dateObj) {
+        return `${dateObj.getFullYear()}-${padNumber(dateObj.getMonth() + 1)}-${padNumber(dateObj.getDate())}`;
+    }
+
+    function describeCalendarFilter(filter) {
+        if (!filter) return '';
+        if (filter.type === 'day' && filter.date) {
+            const dt = new Date(`${filter.date}T00:00:00`);
+            return `Showing entries for ${dt.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`;
+        }
+        if (filter.type === 'week' && filter.start && filter.end) {
+            const start = new Date(`${filter.start}T00:00:00`);
+            const end = new Date(`${filter.end}T00:00:00`);
+            return `Showing entries for week ${start.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} – ${end.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
+        }
+        return '';
+    }
+
+    function updateFilterPanel() {
+        if (!filterInfoEl || !filterLabelEl) return;
+        if (currentCalendarFilter) {
+            filterLabelEl.textContent = describeCalendarFilter(currentCalendarFilter);
+            filterInfoEl.hidden = false;
+        } else {
+            filterLabelEl.textContent = '';
+            filterInfoEl.hidden = true;
+        }
+    }
+
+    function setCalendarFilter(filter) {
+        currentCalendarFilter = filter ? { ...filter } : null;
+        updateFilterPanel();
+    }
+
+    function clearCalendarFilter() {
+        setCalendarFilter(null);
+    }
+
+    function applyCalendarFilter(entries) {
+        if (!currentCalendarFilter) return entries;
+        if (currentCalendarFilter.type === 'day') {
+            return entries.filter(entry => entry.date === currentCalendarFilter.date);
+        }
+        if (currentCalendarFilter.type === 'week' && currentCalendarFilter.start && currentCalendarFilter.end) {
+            return entries.filter(entry => {
+                if (!entry.date) return false;
+                return entry.date >= currentCalendarFilter.start && entry.date <= currentCalendarFilter.end;
+            });
+        }
+        return entries;
     }
 
     function openEditModal(e, idx) {
@@ -703,25 +770,64 @@
         
         let weekHours = 0;
         let dayCount = 0;
+        const weekDates = [];
+
+        function appendWeekTotal(hours) {
+            if (weekDates.length === 0) return;
+            const weekStart = weekDates[0];
+            const weekEnd = weekDates[weekDates.length - 1];
+            const weekTotal = document.createElement('div');
+            weekTotal.className = 'calendar-week-total';
+            weekTotal.textContent = `${hours.toFixed(1)}h`;
+            weekTotal.dataset.weekStart = weekStart;
+            weekTotal.dataset.weekEnd = weekEnd;
+
+            if (currentCalendarFilter && currentCalendarFilter.type === 'week' && currentCalendarFilter.start === weekStart && currentCalendarFilter.end === weekEnd) {
+                weekTotal.classList.add('active-filter');
+            }
+
+            weekTotal.addEventListener('click', () => {
+                setCalendarFilter({ type: 'week', start: weekStart, end: weekEnd });
+                switchView('entries');
+                render();
+            });
+
+            calendarGrid.appendChild(weekTotal);
+            weekDates.length = 0;
+        }
+
+        function pushWeekDate(dateObj) {
+            weekDates.push(formatIsoFromDate(dateObj));
+        }
         
         // Add previous month's days
         for (let i = dayOfWeek - 1; i >= 0; i--) {
             const day = prevMonthLastDay - i;
+            const cellDate = new Date(year, month - 1, day);
+            const iso = formatIsoFromDate(cellDate);
             const cell = document.createElement('div');
             cell.className = 'calendar-day other-month';
+            cell.dataset.date = iso;
             cell.innerHTML = `<div class="calendar-day-number">${day}</div>`;
             calendarGrid.appendChild(cell);
+            pushWeekDate(cellDate);
             dayCount++;
+            if (dayCount % 7 === 0) {
+                appendWeekTotal(weekHours);
+                weekHours = 0;
+            }
         }
         
         // Add current month's days
         for (let day = 1; day <= lastDay; day++) {
-            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            const cellDate = new Date(year, month, day);
+            const dateStr = formatIsoFromDate(cellDate);
             const hours = hoursPerDay[dateStr] || 0;
             weekHours += hours;
             
             const cell = document.createElement('div');
             cell.className = 'calendar-day';
+            cell.dataset.date = dateStr;
             
             if (dateStr === todayStr) {
                 cell.classList.add('today');
@@ -736,21 +842,24 @@
                 <div class="calendar-day-number">${day}</div>
                 ${hoursText ? `<div class="calendar-day-hours">${hoursText}</div>` : ''}
             `;
-            
+
+            if (currentCalendarFilter && currentCalendarFilter.type === 'day' && currentCalendarFilter.date === dateStr) {
+                cell.classList.add('active-filter');
+            }
+
             cell.addEventListener('click', () => {
-                // Filter entries for this day (future feature)
-                console.log('Clicked day:', dateStr, 'Hours:', hours);
+                setCalendarFilter({ type: 'day', date: dateStr });
+                switchView('entries');
+                render();
             });
-            
+
             calendarGrid.appendChild(cell);
+            pushWeekDate(cellDate);
             dayCount++;
             
             // Add week total at end of week (Sunday)
             if (dayCount % 7 === 0) {
-                const weekTotal = document.createElement('div');
-                weekTotal.className = 'calendar-week-total';
-                weekTotal.textContent = `${weekHours.toFixed(1)}h`;
-                calendarGrid.appendChild(weekTotal);
+                appendWeekTotal(weekHours);
                 weekHours = 0;
             }
         }
@@ -758,19 +867,26 @@
         // Add next month's days to fill the grid
         const remainingCells = (7 - (dayCount % 7)) % 7;
         for (let day = 1; day <= remainingCells; day++) {
+            const cellDate = new Date(year, month + 1, day);
+            const iso = formatIsoFromDate(cellDate);
             const cell = document.createElement('div');
             cell.className = 'calendar-day other-month';
+            cell.dataset.date = iso;
             cell.innerHTML = `<div class="calendar-day-number">${day}</div>`;
             calendarGrid.appendChild(cell);
+            pushWeekDate(cellDate);
             dayCount++;
+            if (dayCount % 7 === 0) {
+                appendWeekTotal(weekHours);
+                weekHours = 0;
+            }
         }
         
         // Add final week total if needed
         if (weekHours > 0) {
-            const weekTotal = document.createElement('div');
-            weekTotal.className = 'calendar-week-total';
-            weekTotal.textContent = `${weekHours.toFixed(1)}h`;
-            calendarGrid.appendChild(weekTotal);
+            appendWeekTotal(weekHours);
+        } else {
+            weekDates.length = 0;
         }
     }
 
@@ -784,16 +900,24 @@
         entriesEl.innerHTML = '';
         const list = loadLocal();
         console.log('[Render] Rendering', list.length, 'entries');
+        updateFilterPanel();
+        const filteredList = applyCalendarFilter(list);
         
-        if (list.length === 0) {
+        if (filteredList.length === 0) {
             const empty = document.createElement('div');
             empty.style.textAlign = 'center';
             empty.style.padding = '40px 20px';
             empty.style.color = 'var(--text-muted)';
-            empty.innerHTML = '<p>No entries yet</p><p style="font-size: 2rem; margin-top: 12px;">📝</p>';
+            const filterMessage = filterLabelEl && filterLabelEl.textContent
+                ? `<p>${filterLabelEl.textContent}</p>`
+                : '<p>No entries match the selected filter.</p>';
+            const message = currentCalendarFilter
+                ? filterMessage
+                : '<p>No entries yet</p><p style="font-size: 2rem; margin-top: 12px;">📝</p>';
+            empty.innerHTML = message;
             entriesEl.appendChild(empty);
         } else {
-            list.forEach((e, i) => {
+            filteredList.forEach((e, i) => {
                 console.log('[Render] Creating card for entry', i, ':', e);
                 entriesEl.appendChild(fmtEntryCard(e, i));
             });

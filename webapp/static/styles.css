@@ -439,6 +439,12 @@ input[type="password"]:focus {
     border-color: var(--accent);
 }
 
+.calendar-day.active-filter {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+}
+
 .calendar-day-number {
     font-size: 0.9rem;
     font-weight: 600;
@@ -461,6 +467,44 @@ input[type="password"]:focus {
     color: var(--accent);
     background: rgba(37, 99, 235, 0.05);
     border-radius: 8px;
+}
+
+.calendar-week-total.active-filter {
+    background: var(--accent);
+    color: #fff;
+    box-shadow: var(--shadow);
+}
+
+.filter-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-radius: 10px;
+    border: 1px dashed var(--border);
+    margin-bottom: 16px;
+    background: rgba(37, 99, 235, 0.08);
+    color: var(--text);
+}
+
+.filter-info span {
+    font-weight: 500;
+    font-size: 0.95rem;
+}
+
+.filter-clear-btn {
+    background: none;
+    border: none;
+    color: var(--accent);
+    cursor: pointer;
+    font-size: 0.9rem;
+    padding: 4px 6px;
+    border-radius: 6px;
+    transition: background 0.2s;
+}
+
+.filter-clear-btn:hover {
+    background: rgba(37, 99, 235, 0.12);
 }
 
 .entries-list {

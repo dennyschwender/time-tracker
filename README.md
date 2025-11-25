@@ -1,202 +1,90 @@
 # TimeTracking
 
-Simple cross-platform time tracking GUI application (PyQt5).
+TimeTracking is a lightweight, cross-platform **command-line** time tracker backed by a shared data model that can also power the companion Flask-based webapp under `webapp/`.
 
 ## Requirements
 
-- Python 3.11+
-- Create a virtual environment and install dependencies:
+- Python 3.11 or later
+- A POSIX shell for the commands below (macOS / Linux, PowerShell equivalents work on Windows)
+- Create and activate a virtual environment from the project root:
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate  # macOS/Linux
-## TimeTracking
+```
 
-TimeTracking is a small cross-platform time-tracking application. It includes:
-
-- A desktop PyQt5 GUI (timer, manual entries, edit/delete, Excel export)
-- A lightweight web frontend (SPA) with optional server persistence (Flask + SQLite)
-
-This README shows how to set up and run the desktop app and the webapp, run tests, and package the project.
-
-## Features
-
-Key features available in both the desktop and web apps:
-
-- Resume: continue an existing entry instead of creating a new one. Useful if you stopped tracking and want to continue the same task — the running timer will extend the original entry rather than creating a duplicate.
-
-- Edit: modify an existing entry's date, start/end times, and description. The desktop app provides an Edit dialog; the webapp offers an Edit modal for quick fixes.
-
-- Undo / Confirm Delete: deletions require confirmation. An immediate Undo is available for accidental deletions — desktop uses a one-step undo in the manager, the webapp stores the last deletion in the session and presents an Undo action in the UI.
-
-These behaviors are documented here so you can discover them quickly when using either interface.
-
-## Requirements
-
-- Python 3.11+
-- A POSIX shell for the examples below (macOS / Linux). Windows PowerShell equivalents are shown where relevant.
-
-Recommended: create and use a virtual environment in the project root:
+Then install the dependencies:
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate   # macOS / Linux
-# On Windows (PowerShell): .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 ```
 
-Note: the `webapp` directory has its own lightweight dependencies (Flask, gunicorn). You can use the same venv or install from `webapp/requirements.txt`.
+## CLI Usage
 
-## Desktop application (PyQt)
+The CLI entry point is `src/main.py`. You can use the following commands:
 
-Run the desktop GUI from the `TimeTracking` directory:
+- `python src/main.py start [--description "Work description"]` — starts a new timer (fails if the timer is already running).
+- `python src/main.py stop` — stops the running timer and records the entry.
+- `python src/main.py status` — shows whether a timer is running and the total for today.
+- `python src/main.py list [--date YYYY-MM-DD]` — lists stored entries for the given date (defaults to today).
+- `python src/main.py add --start YYYY-MM-DDTHH:MM:SS --end YYYY-MM-DDTHH:MM:SS [--description TEXT] [--absence]` — adds a manual entry.
+- `python src/main.py resume [--date YYYY-MM-DD] [--index N]` — resumes an existing (non-absence) entry using the 1-based index from `list`.
+- `python src/main.py report [--start-date YYYY-MM-DD] [--end-date YYYY-MM-DD]` — prints a tabular report for the requested range.
+- `python src/main.py sync [--direction push|pull|both] --server-url <URL> --username <user> --pin <pin>` — synchronize the local storage with a running webapp instance so the CLI and webapp share the same entries. Defaults to pushing local entries and pulling any changes (`both`).
 
-```bash
-# from project root (TimeTracking)
-.venv/bin/python src/main.py
-```
+The sync command accepts `TIMETRACKER_REMOTE_URL`, `TIMETRACKER_REMOTE_USERNAME`, and `TIMETRACKER_REMOTE_PIN` environment variables if you prefer not to pass credentials on the command line (you still need to supply `--server-url` or set `TIMETRACKER_REMOTE_URL`).
 
-Windows (PowerShell):
+Each command accepts `--storage /path/to/timedata.json` to override the default storage file if needed. The CLI relies on the same `TimeEntryManager` code that was previously used by the GUI, so existing JSON files will continue to load.
 
-```powershell
-$env:PYTHONPATH = "./src"; .\.venv\Scripts\python.exe src\main.py
-```
+## Data Storage
 
-Environment variables of interest:
+Entries are stored in `timedata.json` inside the platform-appropriate app data directory determined by `appdirs`. On macOS this is `~/Library/Application Support/TimeTracker/timedata.json`, and Linux uses `~/.local/share/TimeTracker`. Legacy files under `~/.timetracker/` are still supported. The CLI will create the folder structure automatically.
 
-- `TIMETRACKER_DEBUG=1` — enable debug prints used during development
+## Web Application (SPA + Flask)
 
-Data storage:
-
-The desktop app uses `appdirs` to choose a platform-appropriate user data directory. The JSON file is named `timedata.json` and is stored under the standard app data folder for your OS (e.g. `~/Library/Application Support/TimeTracker` on macOS).
-
-Export:
-
-Use File -> Export Report... in the app to generate an Excel `.xlsx` report for a date range.
-
-## Web application (SPA + Flask)
-
-The web UI is a single-page app (static) served by a small Flask backend.
-
-**Authentication:** The webapp now requires user authentication with username and PIN. Each user's data is stored separately and securely (PINs are hashed with SHA-256). By default the client stores everything in browser `localStorage`. Server-side persistence is optional and controlled by an environment variable.
-
-### Configuration
-
-Create a `.env` file in the project root (copy from `.env.example`):
+The `webapp/` directory still hosts the Flask-backed single-page application. Copy `.env.example` to `.env`, set the secret key, and enable server persistence (if desired) while keeping the CLI data in sync:
 
 ```bash
 cp .env.example .env
+# edit SECRET_KEY, USE_SERVER_DB, PORT, etc.
 ```
 
-Then edit `.env` and set your own values:
-
-```bash
-# Generate a secure random secret key
-SECRET_KEY=your-secure-random-secret-key-here
-USE_SERVER_DB=1
-```
-
-**Note:** The `.env` file is git-ignored to keep your secrets safe.
-
-### Running the webapp
-
-Run the webapp (development server):
+Run the webapp locally:
 
 ```bash
 cd webapp
-. ../.venv/bin/activate   # if not already active
-python app.py  # automatically loads .env file
+source ../.venv/bin/activate  # if not already active
+python app.py
 ```
 
-By default the server listens on port `5000`. You can override the port in `.env` with `PORT=5001`.
+The SPA requires authentication via username + PIN, stores a local copy in the browser, and optionally syncs to the server when `USE_SERVER_DB=1`.
 
-### Docker Deployment
-
-The Docker setup automatically reads from your `.env` file:
-
-```bash
-docker-compose up --build
-```
-
-The webapp will be available at `http://localhost:5001`
-
-### Web App Features
-
-- **Multi-user support:** Each user has their own account with username and PIN
-- **Secure authentication:** PINs are hashed and stored securely
-- **User-specific data:** Entries are isolated per user
-- **Mobile-friendly:** Responsive design with bottom navigation on mobile
-- **Local + Server storage:** Use localStorage for offline, sync to server when authenticated
-
-Notes:
-
-- Server DB: when `USE_SERVER_DB=1` the server stores entries in `web_data.db` inside the platform-appropriate app data dir (via `appdirs`).
-- Client storage: the SPA keeps a copy in `localStorage`, and syncs to the server only when you press "Sync to Server".
-
-Docker (optional): a Dockerfile and `docker-compose.yml` are included for the webapp. From the repository root you can run:
+Docker Compose (optional):
 
 ```bash
 docker compose up --build
 ```
 
-This runs the web service in a container and exposes it on the port configured in the compose file (check `docker-compose.yml`).
-
 ## Tests
 
-Run the Python unit tests with pytest from the project root:
+Run the unit tests from the project root:
 
 ```bash
 .venv/bin/python -m pytest -q
 ```
 
-Run only the webapp unit tests:
+For the webapp tests, change directory to `webapp/` and run pytest via the shared venv:
 
 ```bash
 cd webapp
-. ../.venv/bin/activate
 ../.venv/bin/python -m pytest -q
 ```
 
-Playwright / E2E:
-
-An optional Playwright test is included under `webapp/tests/e2e/` but it is skipped by default. To run E2E tests you must install Playwright and browsers:
-
-```bash
-pip install playwright pytest-playwright
-npx playwright install  # or: playwright install
-```
-
-Then start the webapp and run the E2E test (example):
-
-```bash
-# start webapp
-cd webapp
-../.venv/bin/python app.py
-
-# in another terminal
-cd webapp
-../.venv/bin/python -m pytest tests/e2e/test_timer_resume.py -q
-```
-
-## Development notes
-
-- Code layout (top-level `src/`):
-
-```text
-src/
-├── gui/           # PyQt GUI widgets and dialogs
-├── models/        # TimeEntry and TimeEntryManager
-└── utils/         # helper utilities
-```
-
-- The `webapp/` folder contains a small Flask app (`webapp/app.py`) and a static SPA under `webapp/static/`.
-- Tests live under `tests/` (desktop) and `webapp/tests/` (web).
-
 ## Troubleshooting
 
-- If the desktop app fails to start because `PyQt5` is missing: ensure you installed `PyQt5` in the venv and use the Python executable from that venv.
-- If the webapp returns `"server persistence disabled"` when calling `/api/save_entries` or `/api/load_entries`, set `USE_SERVER_DB=1` before starting the server.
-- If port 5000 is in use, change `PORT` when running `app.py`.
+- If the CLI complains about the storage path, confirm the parent directory is writable or pass `--storage` to point to another file.
+- You can set `TIMETRACKER_DEBUG=1` in your shell before running the CLI to see debug prints from the entry manager.
+- If the webapp reports "server persistence disabled", set `USE_SERVER_DB=1` before starting the Flask server.
 
 ## License
 

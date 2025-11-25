@@ -43,4 +43,6 @@ def client(monkeypatch, tmp_path):
         pass
     flask_app.config["TESTING"] = True
     with flask_app.test_client() as client:
+        username = f"testuser_{tmp_path.name}"
+        client.post("/api/auth/register", json={"username": username, "pin": "1234"})
         yield client

@@ -14,6 +14,7 @@ class TimeEntryManager:
         self.storage_path = storage_path
         self.entries: Dict[date, List[TimeEntry]] = {}
         self.current_entry: Optional[TimeEntry] = None
+        self.last_deleted: Optional[TimeEntry] = None
         self._load_entries()
     
     def start_timer(self, description: str = "") -> None:
@@ -256,3 +257,12 @@ class TimeEntryManager:
         except Exception as e:
             print(f"Error loading entries: {e}")
             self.entries = {}
+
+    def replace_entries(self, entries: List[TimeEntry]) -> None:
+        """Replace all stored entries with the provided list."""
+        self.entries = {}
+        self.current_entry = None
+        self.last_deleted = None
+        for entry in entries:
+            self._add_entry(entry)
+        self.save_entries()
