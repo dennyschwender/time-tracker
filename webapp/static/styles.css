@@ -14,6 +14,9 @@
     --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.15);
     --header-height: 60px;
     --nav-height: 70px;
+    --absence-border: rgba(245, 158, 11, 0.4);
+    --absence-bg: rgba(250, 204, 21, 0.12);
+    --absence-text: #f59e0b;
 }
 
 /* Dark Theme */
@@ -31,6 +34,9 @@
     --border: rgba(255, 255, 255, 0.1);
     --shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
     --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.5);
+    --absence-border: rgba(251, 191, 36, 0.45);
+    --absence-bg: rgba(251, 191, 36, 0.15);
+    --absence-text: #fbbf24;
 }
 
 * {
@@ -533,9 +539,9 @@ input[type="password"]:focus {
 }
 
 .entry-card.absence {
-    border-color: rgba(220, 38, 38, 0.4);
-    background: rgba(220, 38, 38, 0.08);
-    color: var(--danger);
+    border-color: var(--absence-border);
+    background: var(--absence-bg);
+    color: var(--absence-text);
 }
 
 .entry-left {
@@ -574,7 +580,7 @@ input[type="password"]:focus {
 }
 
 .entry-card.absence .entry-meta {
-    color: var(--danger);
+    color: var(--absence-text);
 }
 
 .entry-actions button:active {
