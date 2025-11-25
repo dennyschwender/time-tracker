@@ -373,18 +373,22 @@
     function isoToTime(iso) {
         if (!iso) return '';
         const d = new Date(iso);
-        return d.toTimeString().slice(0, 8);
+        return d.toTimeString().slice(0, 5);
     }
 
     function durationSeconds(startIso, endIso) {
         return Math.round((new Date(endIso) - new Date(startIso)) / 1000);
     }
 
+    let timerColonVisible = true;
+
     function formatDuration(sec) {
-        const h = Math.floor(sec / 3600).toString().padStart(2, '0');
-        const m = Math.floor((sec % 3600) / 60).toString().padStart(2, '0');
-        const s = (sec % 60).toString().padStart(2, '0');
-        return `${h}:${m}:${s}`;
+        const totalMinutes = Math.floor(sec / 60);
+        const hours = Math.floor(totalMinutes / 60).toString().padStart(2, '0');
+        const minutes = (totalMinutes % 60).toString().padStart(2, '0');
+        const separator = timerColonVisible ? ':' : ' ';
+        timerColonVisible = !timerColonVisible;
+        return `${hours}${separator}${minutes}`;
     }
 
     function fmtEntryCard(e, idx) {
@@ -969,7 +973,8 @@
     function updateTimerDisplay() {
         const running = loadRunning();
         if (!running) {
-            timerTimeEl.textContent = '00:00:00';
+            timerColonVisible = true;
+            timerTimeEl.textContent = '00:00';
             timerStatusEl.textContent = 'Stopped';
             timerStartBtn.disabled = false;
             timerStopBtn.disabled = true;
