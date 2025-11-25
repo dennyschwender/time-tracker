@@ -594,6 +594,16 @@
         });
     }
 
+    function formatGroupLabel(dateStr) {
+        if (!dateStr) return 'Unknown date';
+        const dt = new Date(`${dateStr}T00:00:00`);
+        return dt.toLocaleDateString(undefined, {
+            weekday: 'long',
+            month: 'short',
+            day: 'numeric',
+        });
+    }
+
     function openEditModal(e, idx) {
         const modal = document.getElementById('edit_modal');
         const d = document.getElementById('edit_date');
@@ -936,7 +946,15 @@
             empty.innerHTML = message;
             entriesEl.appendChild(empty);
         } else {
+            let lastDate = null;
             filteredList.forEach((e, i) => {
+                if (e.date && e.date !== lastDate) {
+                    const header = document.createElement('div');
+                    header.className = 'entries-group-header';
+                    header.textContent = formatGroupLabel(e.date);
+                    entriesEl.appendChild(header);
+                    lastDate = e.date;
+                }
                 console.log('[Render] Creating card for entry', i, ':', e);
                 entriesEl.appendChild(fmtEntryCard(e, i));
             });
