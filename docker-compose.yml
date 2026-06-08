@@ -10,3 +10,10 @@ services:
       - ./webapp:/app
       - ./.timeTrackerData:/root/.local/share/TimeTrackerWeb
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          memory: 128M
