@@ -64,6 +64,10 @@
             <span class="icon">🔄</span>
             <span>Sync</span>
         </button>
+        <button class="nav-item" data-view="stats">
+            <span class="icon">📈</span>
+            <span>Stats</span>
+        </button>
     </nav>
 
     <main class="main-content">
@@ -92,6 +96,9 @@
                     <button id="calendar_next" class="btn-icon">▶</button>
                 </div>
                 <div id="calendar_grid" class="calendar-grid"></div>
+            </div>
+            <div class="entry-search">
+                <input type="text" id="entry_search" placeholder="🔍 Search by description...">
             </div>
             <div id="filter_info" class="filter-info" hidden>
                 <span id="filter_label"></span>
@@ -153,7 +160,35 @@
                 </div>
             </div>
         </section>
+
+        <!-- Statistics View -->
+        <section id="view_stats" class="view">
+            <div class="card sync-card">
+                <h2>📈 Statistics</h2>
+                <p class="info-text">Weekly and monthly summaries of time worked, based on the date range below.</p>
+                <label>Start Date
+                    <input type="date" id="stats_start">
+                </label>
+                <label>End Date
+                    <input type="date" id="stats_end">
+                </label>
+                <div class="form-actions">
+                    <button id="generate_stats" class="btn btn-primary btn-block">📊 Generate Summary</button>
+                </div>
+            </div>
+            <div class="card sync-card" style="margin-top: 20px;">
+                <h3>Weekly Totals</h3>
+                <div id="stats_weekly" class="stats-summary-list"></div>
+            </div>
+            <div class="card sync-card" style="margin-top: 20px;">
+                <h3>Monthly Totals</h3>
+                <div id="stats_monthly" class="stats-summary-list"></div>
+            </div>
+        </section>
     </main>
+
+    <!-- Toast notification -->
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
     <!-- Edit modal -->
     <div id="edit_modal" class="modal" aria-hidden="true">

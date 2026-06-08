@@ -63,7 +63,19 @@ class TimeEntryManager:
     def get_entries_for_date(self, date_: date) -> List[TimeEntry]:
         """Get all entries for a specific date."""
         return self.entries.get(date_, [])
-    
+
+    def search_entries(self, query: str) -> List[TimeEntry]:
+        """Return all entries whose description contains the query (case-insensitive)."""
+        query = (query or "").strip().lower()
+        if not query:
+            return [entry for entries in self.entries.values() for entry in entries]
+        return [
+            entry
+            for entries in self.entries.values()
+            for entry in entries
+            if query in (entry.description or "").lower()
+        ]
+
     def get_total_time_for_date(self, date_: date) -> timedelta:
         """Calculate total time worked for a date (excluding absences)."""
         entries = self.get_entries_for_date(date_)
@@ -168,6 +180,44 @@ class TimeEntryManager:
             total += self.get_total_time_for_date(day)
         
         return total
+
+    def get_statistics_summary(self, start_date: date, end_date: date) -> dict:
+        """Build weekly and monthly time-worked summaries for a date range.
+
+        Returns a dict with:
+          - "weekly": list of {"week_start": date, "week_end": date, "total": timedelta}
+          - "monthly": list of {"year": int, "month": int, "total": timedelta}
+        Each day in [start_date, end_date] is attributed to the week containing it
+        (Monday-Sunday) and the calendar month containing it.
+        """
+        if end_date < start_date:
+            start_date, end_date = end_date, start_date
+
+        weekly: "Dict[date, timedelta]" = {}
+        monthly: "Dict[tuple, timedelta]" = {}
+
+        num_days = (end_date - start_date).days + 1
+        for i in range(num_days):
+            day = start_date + timedelta(days=i)
+            day_total = self.get_total_time_for_date(day)
+
+            days_since_monday = (day.weekday() + 7) % 7
+            week_start = day - timedelta(days=days_since_monday)
+            weekly[week_start] = weekly.get(week_start, timedelta()) + day_total
+
+            month_key = (day.year, day.month)
+            monthly[month_key] = monthly.get(month_key, timedelta()) + day_total
+
+        weekly_list = [
+            {"week_start": ws, "week_end": ws + timedelta(days=6), "total": total}
+            for ws, total in sorted(weekly.items())
+        ]
+        monthly_list = [
+            {"year": y, "month": m, "total": total}
+            for (y, m), total in sorted(monthly.items())
+        ]
+
+        return {"weekly": weekly_list, "monthly": monthly_list}
 
     def generate_report(self, start_date: date, end_date: date):
         """Generate a report data structure for a date range.

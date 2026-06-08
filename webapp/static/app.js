@@ -27,6 +27,14 @@
     const filterInfoEl = document.getElementById('filter_info');
     const filterLabelEl = document.getElementById('filter_label');
     const filterClearBtn = document.getElementById('filter_info_clear');
+    const entrySearchEl = document.getElementById('entry_search');
+
+    // Stats elements
+    const statsStartEl = document.getElementById('stats_start');
+    const statsEndEl = document.getElementById('stats_end');
+    const generateStatsBtn = document.getElementById('generate_stats');
+    const statsWeeklyEl = document.getElementById('stats_weekly');
+    const statsMonthlyEl = document.getElementById('stats_monthly');
 
     // Calendar elements
     const calendarGrid = document.getElementById('calendar_grid');
@@ -523,6 +531,7 @@
             sessionStorage.setItem('timetracker_last_deleted', JSON.stringify({ entry: deleted, index: currentIdx }));
             // show undo in status
             showUndoStatus();
+            showToast('🗑️ Entry deleted');
             render();
             console.log('[Delete] Re-rendered entries list');
             
@@ -583,6 +592,12 @@
         setCalendarFilter(null);
     }
 
+    function applySearchFilter(entries) {
+        const query = (entrySearchEl && entrySearchEl.value || '').trim().toLowerCase();
+        if (!query) return entries;
+        return entries.filter(entry => (entry.description || '').toLowerCase().includes(query));
+    }
+
     function applyCalendarFilter(entries) {
         if (!currentCalendarFilter) return entries;
         if (currentCalendarFilter.type === 'day') {
@@ -595,6 +610,58 @@
             });
         }
         return entries;
+    }
+
+    function getDayTotalHours(entries, dateStr) {
+        const dayEntries = entries.filter(e => e.date === dateStr);
+        const workEntries = dayEntries.filter(e => !e.is_absence);
+        const absenceEntries = dayEntries.filter(e => e.is_absence);
+
+        const toRange = (entry) => {
+            if (entry.start_iso && entry.end_iso) {
+                return [new Date(entry.start_iso), new Date(entry.end_iso)];
+            }
+            if (entry.date && entry.start && entry.end) {
+                return [new Date(`${entry.date}T${entry.start}`), new Date(`${entry.date}T${entry.end}`)];
+            }
+            return null;
+        };
+
+        let totalHours = 0;
+        workEntries.forEach(workEntry => {
+            const range = toRange(workEntry);
+            if (!range) return;
+            const [workStart, workEnd] = range;
+            let workDuration = (workEnd - workStart) / (1000 * 60 * 60);
+
+            absenceEntries.forEach(absence => {
+                const absRange = toRange(absence);
+                if (!absRange) return;
+                const [absStart, absEnd] = absRange;
+                const overlapStart = new Date(Math.max(workStart, absStart));
+                const overlapEnd = new Date(Math.min(workEnd, absEnd));
+                if (overlapStart < overlapEnd) {
+                    workDuration -= (overlapEnd - overlapStart) / (1000 * 60 * 60);
+                }
+            });
+
+            totalHours += workDuration;
+        });
+
+        return totalHours;
+    }
+
+    function showToast(message, type) {
+        const toastEl = document.getElementById('toast');
+        if (!toastEl) return;
+        toastEl.textContent = message;
+        toastEl.classList.remove('toast-error');
+        if (type === 'error') toastEl.classList.add('toast-error');
+        toastEl.classList.add('show');
+        clearTimeout(toastEl._hideTimer);
+        toastEl._hideTimer = setTimeout(() => {
+            toastEl.classList.remove('show');
+        }, 2200);
     }
 
     function sortEntries(entries) {
@@ -658,6 +725,7 @@
             if (item.date && item.end) item.end_iso = `${item.date}T${item.end}`;
             saveLocal(list);
             cleanup();
+            showToast('✅ Entry updated');
             render();
             // Auto-save to server if enabled
             if (serverDbEnabled && isAuthenticated) {
@@ -696,6 +764,7 @@
                 saveLocal(list);
                 sessionStorage.removeItem('timetracker_last_deleted');
                 statusEl.textContent = 'Restored';
+                showToast('↩️ Entry restored');
                 render();
                 // Auto-save to server if enabled
                 if (serverDbEnabled && isAuthenticated) {
@@ -944,8 +1013,8 @@
         const list = sortEntries(loadLocal());
         console.log('[Render] Rendering', list.length, 'entries');
         updateFilterPanel();
-        const filteredList = applyCalendarFilter(list);
-        
+        const filteredList = applySearchFilter(applyCalendarFilter(list));
+
         if (filteredList.length === 0) {
             const empty = document.createElement('div');
             empty.style.textAlign = 'center';
@@ -1063,8 +1132,7 @@
         descEl.value = '';
         isAbsEl.checked = false;
         // Show success and switch to entries view
-        statusEl.textContent = 'Entry added successfully!';
-        setTimeout(() => { statusEl.textContent = ''; }, 2000);
+        showToast('✅ Entry added');
         switchView('entries');
         render();
         // Auto-save to server if enabled
@@ -1072,6 +1140,10 @@
             saveToServer(true);
         }
     });
+
+    if (entrySearchEl) {
+        entrySearchEl.addEventListener('input', () => render());
+    }
 
     saveServerBtn.addEventListener('click', () => saveToServer(false));
     loadServerBtn.addEventListener('click', () => loadFromServer(false));
@@ -1233,6 +1305,120 @@
             
             statusEl.textContent = `Report generated: ${filteredEntries.length} entries, ${grandTotal.toFixed(2)} hours total`;
             setTimeout(() => { statusEl.textContent = ''; }, 5000);
+        });
+    }
+
+    // Generate Statistics Summary (weekly / monthly totals)
+    function formatHours(hours) {
+        return `${hours.toFixed(2)}h`;
+    }
+
+    function localDateStr(d) {
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
+
+    function isoWeekStart(dateStr) {
+        const dt = new Date(`${dateStr}T00:00:00`);
+        const daysSinceMonday = (dt.getDay() + 6) % 7;
+        dt.setDate(dt.getDate() - daysSinceMonday);
+        return localDateStr(dt);
+    }
+
+    function formatDateLabel(dateStr) {
+        const dt = new Date(`${dateStr}T00:00:00`);
+        return dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+
+    if (generateStatsBtn) {
+        generateStatsBtn.addEventListener('click', () => {
+            const startDate = statsStartEl.value;
+            const endDate = statsEndEl.value;
+
+            if (!startDate || !endDate) {
+                alert('Please select both start and end dates');
+                return;
+            }
+            if (startDate > endDate) {
+                alert('Start date must be before end date');
+                return;
+            }
+
+            const list = loadLocal();
+
+            // Build the list of dates in range
+            const dates = [];
+            const current = new Date(`${startDate}T00:00:00`);
+            const end = new Date(`${endDate}T00:00:00`);
+            while (current <= end) {
+                dates.push(localDateStr(current));
+                current.setDate(current.getDate() + 1);
+            }
+
+            // Aggregate by ISO week (Mon-Sun) and by calendar month
+            const weekly = new Map();
+            const monthly = new Map();
+
+            dates.forEach(dateStr => {
+                const dayTotal = getDayTotalHours(list, dateStr);
+
+                const weekStart = isoWeekStart(dateStr);
+                weekly.set(weekStart, (weekly.get(weekStart) || 0) + dayTotal);
+
+                const monthKey = dateStr.slice(0, 7); // YYYY-MM
+                monthly.set(monthKey, (monthly.get(monthKey) || 0) + dayTotal);
+            });
+
+            const weekEntries = [...weekly.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+            const monthEntries = [...monthly.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+
+            statsWeeklyEl.textContent = '';
+            if (weekEntries.length === 0) {
+                const empty = document.createElement('p');
+                empty.className = 'info-text';
+                empty.textContent = 'No data in range.';
+                statsWeeklyEl.appendChild(empty);
+            }
+            weekEntries.forEach(([weekStart, total]) => {
+                const weekEnd = new Date(`${weekStart}T00:00:00`);
+                weekEnd.setDate(weekEnd.getDate() + 6);
+                const row = document.createElement('div');
+                row.className = 'stats-row';
+                const label = document.createElement('span');
+                label.className = 'stats-label';
+                label.textContent = `${formatDateLabel(weekStart)} – ${formatDateLabel(weekEnd.toISOString().slice(0, 10))}`;
+                const totalEl = document.createElement('span');
+                totalEl.className = 'stats-total';
+                totalEl.textContent = formatHours(total);
+                row.appendChild(label);
+                row.appendChild(totalEl);
+                statsWeeklyEl.appendChild(row);
+            });
+
+            const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                'July', 'August', 'September', 'October', 'November', 'December'];
+            statsMonthlyEl.textContent = '';
+            if (monthEntries.length === 0) {
+                const empty = document.createElement('p');
+                empty.className = 'info-text';
+                empty.textContent = 'No data in range.';
+                statsMonthlyEl.appendChild(empty);
+            }
+            monthEntries.forEach(([monthKey, total]) => {
+                const [y, m] = monthKey.split('-').map(Number);
+                const row = document.createElement('div');
+                row.className = 'stats-row';
+                const label = document.createElement('span');
+                label.className = 'stats-label';
+                label.textContent = `${monthNames[m - 1]} ${y}`;
+                const totalEl = document.createElement('span');
+                totalEl.className = 'stats-total';
+                totalEl.textContent = formatHours(total);
+                row.appendChild(label);
+                row.appendChild(totalEl);
+                statsMonthlyEl.appendChild(row);
+            });
+
+            showToast('📈 Statistics updated');
         });
     }
 

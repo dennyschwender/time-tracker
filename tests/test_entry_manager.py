@@ -50,6 +50,57 @@ def test_add_and_generate_report():
         assert meeting_row[0] == 4.0
 
 
+def test_search_entries():
+    with tempfile.TemporaryDirectory() as td:
+        storage = Path(td) / "data.json"
+        mgr = TimeEntryManager(storage)
+
+        d1 = date(2025, 11, 10)
+        mgr.add_manual_entry(create_entry(d1, 9, 1.0, "Coding session"))
+        mgr.add_manual_entry(create_entry(d1, 11, 1.0, "Team meeting"))
+        mgr.add_manual_entry(create_entry(d1, 13, 1.0, "Code review"))
+
+        results = mgr.search_entries("cod")
+        descriptions = sorted(e.description for e in results)
+        assert descriptions == ["Code review", "Coding session"]
+
+        assert len(mgr.search_entries("")) == 3
+        assert mgr.search_entries("nonexistent") == []
+
+
+def test_get_statistics_summary():
+    with tempfile.TemporaryDirectory() as td:
+        storage = Path(td) / "data.json"
+        mgr = TimeEntryManager(storage)
+
+        # Mon 2025-11-10 and Tue 2025-11-11 (same week, same month)
+        d1 = date(2025, 11, 10)
+        d2 = date(2025, 11, 11)
+        # Mon 2025-12-01 (different week and month)
+        d3 = date(2025, 12, 1)
+
+        mgr.add_manual_entry(create_entry(d1, 9, 2.0, "Coding"))
+        mgr.add_manual_entry(create_entry(d2, 9, 3.0, "Coding"))
+        mgr.add_manual_entry(create_entry(d3, 9, 1.0, "Coding"))
+
+        summary = mgr.get_statistics_summary(d1, d3)
+
+        assert len(summary["weekly"]) == 4  # weeks of Nov 10, Nov 17, Nov 24, Dec 1
+        first_week = summary["weekly"][0]
+        assert first_week["week_start"] == date(2025, 11, 10)
+        assert first_week["total"] == timedelta(hours=5)
+
+        last_week = summary["weekly"][-1]
+        assert last_week["week_start"] == date(2025, 12, 1)
+        assert last_week["total"] == timedelta(hours=1)
+
+        assert len(summary["monthly"]) == 2
+        nov = summary["monthly"][0]
+        dec = summary["monthly"][1]
+        assert nov == {"year": 2025, "month": 11, "total": timedelta(hours=5)}
+        assert dec == {"year": 2025, "month": 12, "total": timedelta(hours=1)}
+
+
 def test_save_and_load_persistence():
     with tempfile.TemporaryDirectory() as td:
         storage = Path(td) / "data.json"

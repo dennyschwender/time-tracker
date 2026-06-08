@@ -82,8 +82,8 @@ This document tracks feature parity between the Desktop (PyQt5) and Web versions
 
 1. **Entry Filtering**
 
-   - [ ] Both: Add search/filter by description
-   - [ ] Web: Add ability to click calendar day to filter entries
+   - [x] Both: Add search/filter by description
+   - [x] Web: Add ability to click calendar day to filter entries
 
 2. **Calendar Day Click**
 
@@ -98,12 +98,11 @@ This document tracks feature parity between the Desktop (PyQt5) and Web versions
 
 1. **Visual Enhancements**
 
-   - [ ] Desktop: Match web's card-based entry display
-   - [ ] Web: Add more visual feedback
+   - [x] Web: Add more visual feedback
 
 2. **Entry Statistics**
 
-   - [ ] Both: Add statistics view (weekly/monthly summaries)
+   - [x] Both: Add statistics view (weekly/monthly summaries)
 
 ## 📝 Implementation Notes
 
